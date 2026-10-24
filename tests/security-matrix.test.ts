@@ -36,7 +36,10 @@ const NOPE = { id: "does-not-exist" };
 
 // Expected access per the brief's Section 2 and Section 8 checklist.
 const ACCESS: Record<string, Access> = {
-  "POST /api/ai/chat": { allowed: ALL, body: { messages: [{ role: "user", content: "hi" }] } },
+  "POST /api/ai/chat": { allowed: ALL, body: { conversationId: "00000000-0000-4000-8000-000000000001", message: "hi" } },
+  "GET /api/ai/conversations": { allowed: ALL },
+  "GET /api/ai/conversations/[id]": { allowed: ALL, params: NOPE },
+  "DELETE /api/ai/conversations/[id]": { allowed: ALL, params: NOPE },
   "POST /api/ai/smart-leave": { allowed: ["HR", "EMPLOYEE"], body: { text: "next monday off" } },
   "POST /api/ai/summary": { allowed: ["ADMIN", "HR"], body: {} },
   "GET /api/announcements": { allowed: ALL },

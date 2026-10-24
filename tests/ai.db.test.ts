@@ -8,7 +8,7 @@ import { setLlm, type LlmClient, type LlmRequest, type LlmResponse } from "@/ser
 import { runSmartLeave } from "@/server/ai/smart-leave";
 import { runSummary } from "@/server/ai/summary";
 import { runTool, toolDefsFor } from "@/server/ai/tools";
-import { callTool, hangingModel, say, ScriptedModel } from "./ai-fake";
+import { callTool, chatTurn, hangingModel, say, ScriptedModel } from "./ai-fake";
 import { getDashboardKpis } from "@/server/services/analytics.service";
 import { applyForLeave } from "@/server/services/leave.service";
 import { seedDemo } from "../scripts/dev-seed";
@@ -129,7 +129,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       const model = new ScriptedModel([callTool("get_my_leave_balance"), say("You have 7 sick leaves left this year.")]);
       setChatModel(model);
       const res = await guardedAiCall(sara, "chat", "sick leaves left?", (sig) =>
-        runChat(sara, { messages: [{ role: "user", content: "How many sick leaves do I have left this year?" }] }, sig),
+        runChat(sara, chatTurn("How many sick leaves do I have left this year?"), sig),
       );
       expect(res).toMatchObject({ ok: true, label: "AI-generated", data: { answer: "You have 7 sick leaves left this year." } });
       // The tool result the model saw is Sara's own balance.
@@ -147,7 +147,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
     it("puts the policy rules in the system prompt", async () => {
       const model = new ScriptedModel([say("A check-in after 09:15 is late.")]);
       setChatModel(model);
-      await runChat(ali, { messages: [{ role: "user", content: "What time counts as late?" }] }, signal);
+      await runChat(ali, chatTurn("What time counts as late?"), signal);
       const system = model.requests[0].systemInstructions;
       expect(system).toContain("after 09:15 is late");
     });
@@ -156,10 +156,89 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       const loop = Array.from({ length: 4 }, () => callTool("get_my_leave_balance"));
       const model = new ScriptedModel([...loop, say("Here is your balance.")]);
       setChatModel(model);
-      const run = await runChat(sara, { messages: [{ role: "user", content: "balance" }] }, signal);
+      const run = await runChat(sara, chatTurn("balance"), signal);
       expect(run.data.answer).toBe("Here is your balance.");
       // MAX_TOOL_ROUNDS tool rounds plus one final answer call, then the run stops.
       expect(model.requests).toHaveLength(5);
+    });
+
+    it("a model that never stops calling tools gets the friendly fallback, kept in the history", async () => {
+      const loop = Array.from({ length: 5 }, () => callTool("get_my_leave_balance"));
+      setChatModel(new ScriptedModel(loop));
+      const turn = chatTurn("balance");
+      const run = await runChat(sara, turn, signal);
+      expect(run.data.answer).toBe("Sorry, I could not find an answer to that.");
+      const stored = await db.chatMessage.findMany({ where: { conversationId: turn.conversationId }, orderBy: { id: "asc" } });
+      expect(stored.map((m) => [m.role, m.content])).toEqual([
+        ["user", "balance"],
+        ["assistant", "Sorry, I could not find an answer to that."],
+      ]);
+    });
+  });
+
+  describe("chat history (Agents SDK session in Postgres)", () => {
+    it("remembers earlier turns of the same conversation, from the database", async () => {
+      const turn = chatTurn("How many sick leaves do I have left?");
+      setChatModel(new ScriptedModel([callTool("get_my_leave_balance"), say("You have 7 sick leaves left this year.")]));
+      await runChat(sara, turn, signal);
+
+      const model = new ScriptedModel([say("And 14 annual leaves.")]);
+      setChatModel(model);
+      const run = await runChat(sara, chatTurn("And annual?", turn.conversationId), signal);
+      expect(run.data).toEqual({ answer: "And 14 annual leaves.", conversationId: turn.conversationId });
+
+      // The second run saw the first question and answer, then the new question.
+      const texts = model.requests[0].input.map((i) => JSON.stringify(i));
+      expect(texts).toHaveLength(3);
+      expect(texts[0]).toContain("How many sick leaves");
+      expect(texts[1]).toContain("You have 7 sick leaves");
+      expect(texts[2]).toContain("And annual?");
+    });
+
+    it("stores only user/assistant text, never tool calls or tool results", async () => {
+      const turn = chatTurn("who is ali");
+      setChatModel(new ScriptedModel([callTool("search_employees", { query: "Ali" }), say("Ali Raza is in Engineering.")]));
+      await runChat(hr, turn, signal);
+      const stored = await db.chatMessage.findMany({ where: { conversationId: turn.conversationId }, orderBy: { id: "asc" } });
+      expect(stored.map((m) => m.role)).toEqual(["user", "assistant"]);
+      expect(JSON.stringify(stored)).not.toMatch(/150000|basicSalary|function_call/);
+    });
+
+    it("replays only the most recent messages to the model", async () => {
+      const id = chatTurn("").conversationId;
+      for (let i = 1; i <= 7; i++) {
+        setChatModel(new ScriptedModel([say(`answer ${i}`)]));
+        await runChat(ali, chatTurn(`question ${i}`, id), signal);
+      }
+      const model = new ScriptedModel([say("answer 8")]);
+      setChatModel(model);
+      await runChat(ali, chatTurn("question 8", id), signal);
+      // HISTORY_MESSAGES earlier messages plus the new question; the oldest turns are left out.
+      const input = JSON.stringify(model.requests[0].input);
+      expect(model.requests[0].input).toHaveLength(11);
+      expect(input).not.toContain("question 1");
+      expect(input).toContain("question 3");
+      expect(await db.chatMessage.count({ where: { conversationId: id } })).toBe(16);
+    });
+
+    it("another user's conversation id is a 404 and the model is never called", async () => {
+      const turn = chatTurn("my private question");
+      setChatModel(new ScriptedModel([say("private answer")]));
+      await runChat(sara, turn, signal);
+
+      const model = new ScriptedModel([say("should not run")]);
+      setChatModel(model);
+      await expect(runChat(ali, chatTurn("what did sara ask?", turn.conversationId), signal)).rejects.toMatchObject({ status: 404 });
+      expect(model.requests).toHaveLength(0);
+      expect(await db.chatMessage.count({ where: { conversationId: turn.conversationId } })).toBe(2);
+    });
+
+    it("a failed turn (timeout) writes nothing to the history", async () => {
+      setChatModel(hangingModel());
+      const turn = chatTurn("slow question");
+      const res = await guardedAiCall(hr, "chat", "slow", (sig) => runChat(hr, turn, sig));
+      expect(res).toMatchObject({ ok: false, reason: "timeout" });
+      expect(await db.chatMessage.count({ where: { conversationId: turn.conversationId } })).toBe(0);
     });
   });
 
@@ -272,7 +351,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
   describe("guardrails", () => {
     it("times out with a friendly fallback and logs it", async () => {
       setChatModel(hangingModel());
-      const res = await guardedAiCall(hr, "chat", "slow", (sig) => runChat(hr, { messages: [{ role: "user", content: "hi" }] }, sig));
+      const res = await guardedAiCall(hr, "chat", "slow", (sig) => runChat(hr, chatTurn("hi"), sig));
       expect(res).toMatchObject({ ok: false, reason: "timeout" });
       expect((await db.aiLog.findFirstOrThrow()).status).toBe("timeout");
     });
@@ -283,11 +362,11 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       });
       setChatModel(new ScriptedModel([say("should not be called")]));
       await expect(
-        guardedAiCall(ali, "chat", "one more", (sig) => runChat(ali, { messages: [{ role: "user", content: "hi" }] }, sig)),
+        guardedAiCall(ali, "chat", "one more", (sig) => runChat(ali, chatTurn("hi"), sig)),
       ).rejects.toMatchObject({ status: 429 });
       // Other users are unaffected.
       setChatModel(new ScriptedModel([say("hello")]));
-      const ok = await guardedAiCall(admin, "chat", "hi", (sig) => runChat(admin, { messages: [{ role: "user", content: "hi" }] }, sig));
+      const ok = await guardedAiCall(admin, "chat", "hi", (sig) => runChat(admin, chatTurn("hi"), sig));
       expect(ok.ok).toBe(true);
     });
 

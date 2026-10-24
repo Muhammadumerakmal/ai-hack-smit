@@ -4,9 +4,9 @@ import { guardedAiCall } from "@/server/ai/guard";
 
 export const maxDuration = 30;
 
-// POST /api/ai/chat  { messages: [{ role: "user" | "assistant", content }] }
+// POST /api/ai/chat  { conversationId: uuid, message }  → { ok, data: { answer, conversationId } }
+// Earlier turns are read from the server-side history of that conversation.
 export const POST = withSession(async (req, session) => {
   const body = await readJson(req, chatRequestSchema);
-  const question = body.messages[body.messages.length - 1].content;
-  return guardedAiCall(session, "chat", question, (signal) => runChat(session, body, signal));
+  return guardedAiCall(session, "chat", body.message, (signal) => runChat(session, body, signal));
 });

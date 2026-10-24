@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { AgentInputItem, AgentOutputItem, Model, ModelRequest, ModelResponse, StreamEvent } from "@openai/agents";
 import { Usage } from "@openai/agents";
 import type { LlmResponse } from "@/server/ai/llm";
@@ -42,6 +43,9 @@ function toModelResponse(res: Partial<LlmResponse>): ModelResponse {
     ...(res.finishReason ? { providerData: { finishReason: res.finishReason } } : {}),
   };
 }
+
+/** A chat request body: one question, in a fresh conversation unless an id is given. */
+export const chatTurn = (message: string, conversationId: string = randomUUID()) => ({ conversationId, message });
 
 export const say = (content: string) => () => ({ content });
 export const json = (v: unknown) => say(JSON.stringify(v));

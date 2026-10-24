@@ -2,7 +2,7 @@
 
 AI-assisted Human Capital Management for Admin, HR and Employees (Saylani Hackathon, 24 Oct 2026).
 
-**Stack:** Next.js 16 (App Router, full stack: REST API + UI) · PostgreSQL + Prisma · OpenAI (tool calling) · JWT (httpOnly cookie) + bcrypt · Tailwind · Vitest
+**Stack:** Next.js 16 (App Router, full stack: REST API + UI) · PostgreSQL + Prisma · OpenAI (Agents SDK `@openai/agents` with tool calling) · JWT (httpOnly cookie) + bcrypt · Tailwind · Vitest
 
 ## Run it locally (about 5 minutes)
 
@@ -55,7 +55,7 @@ The AI explains and assists; the database is the only source of truth.
 Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · 15 s · ai_logs)
                                   │
                                   ▼
-                        OpenAI (tools for this role only)
+                        OpenAI (Agents SDK; tools for this role only)
                                   │ tool call
                                   ▼
                  runTool → role check → zod args → services ──▶ Postgres
@@ -84,7 +84,7 @@ Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · 1
 ```
 prisma/schema.prisma          data model (users, employees, attendance, leave, payroll, settings, audit, AI logs …)
 src/server/services/*.ts      business rules (one service per module); the only code that touches the DB
-src/server/ai/*.ts            M8: tools, chat loop, summary, smart leave, guard
+src/server/ai/*.ts            M8: chat agent (OpenAI Agents SDK), tools, summary, smart leave, guard
 src/app/api/**/route.ts       REST API (thin: session + validation → service)
 src/app/(app)/**/page.tsx     screens (role-based menu in src/components/shell/AppShell.tsx)
 tests/*.test.ts               unit, service and route-level tests

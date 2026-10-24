@@ -4,6 +4,7 @@
  *
  *   DATABASE_URL=postgresql://hcm:hcm@localhost:5432/hcm_f npx tsx --env-file=.env scripts/qa-live-ai.ts
  */
+import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { addDays, todayIso, weekdayOf } from "../src/lib/dates";
 import type { Session } from "../src/lib/session";
@@ -30,7 +31,7 @@ async function session(email: string): Promise<Session> {
 
 async function ask(s: Session, q: string) {
   const signal = AbortSignal.timeout(15_000);
-  const run = await runChat(s, { messages: [{ role: "user", content: q }] }, signal);
+  const run = await runChat(s, { conversationId: randomUUID(), message: q }, signal);
   const tools = (run.toolCalls as { name: string; args: string; ok: boolean }[]).map((t) => `${t.name}(${t.args})${t.ok ? "" : " ✗"}`);
   console.log(`\n[${s.role} ${s.name}] ${q}\n   tools: ${tools.join(", ") || "—"}\n   answer: ${run.data.answer.replace(/\n+/g, " ")}`);
   return { answer: run.data.answer, tools: run.toolCalls as { name: string; ok: boolean }[] };
