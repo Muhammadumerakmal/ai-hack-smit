@@ -33,8 +33,6 @@ function monthlyTax(grossMonthly: number): number {
 export async function seedDemo(db: PrismaClient) {
   assertLocalDatabase();
   // Wipe in FK order.
-  await db.chatMessage.deleteMany();
-  await db.chatConversation.deleteMany();
   await db.aiLog.deleteMany();
   await db.auditLog.deleteMany();
   await db.notification.deleteMany();
