@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AiBadge } from "./AiBadge";
 import { postAi } from "./api";
 
@@ -24,6 +24,7 @@ interface SmartLeaveData {
   leaveTypes: LeaveType[];
   draft: LeaveFormValues | null;
   preview: Preview | null;
+  clarify: string | null;
 }
 
 const DEFAULT_TYPES: LeaveType[] = [
@@ -53,16 +54,35 @@ export function SmartLeaveForm({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "warn" | "ok"; text: string } | null>(null);
   const [busy, setBusy] = useState<"ai" | "submit" | null>(null);
+  const [question, setQuestion] = useState<string | null>(null);
+
+  // Real leave types from Settings, so the manual form is right even when the AI is unavailable.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/org/leave-types", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items?: LeaveType[] } | null) => {
+        if (!cancelled && d?.items?.length) setTypes(d.items.map((t) => ({ code: t.code, name: t.name })));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function fillFromText() {
     if (text.trim().length < 3) return;
     setBusy("ai");
     setNotice(null);
+    setQuestion(null);
     const res = await postAi<SmartLeaveData>("smart-leave", { text });
     setBusy(null);
 
     if (res.data?.leaveTypes?.length) setTypes(res.data.leaveTypes);
-    if (res.ok && res.data.draft) {
+    if (res.ok && res.data.clarify) {
+      // The assistant needs more detail: ask, keep the form as it was, let the user rephrase.
+      setQuestion(res.data.clarify);
+    } else if (res.ok && res.data.draft) {
       setForm(res.data.draft);
       setPreview(res.data.preview);
       setAiFilled(true);
@@ -122,6 +142,15 @@ export function SmartLeaveForm({
           </button>
         </div>
       </div>
+
+      {question && (
+        <div role="status" className="space-y-1 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:bg-violet-950 dark:text-violet-200">
+          <p>{question}</p>
+          <p className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
+            <AiBadge /> Add the details to your sentence above and press “Fill the form” again.
+          </p>
+        </div>
+      )}
 
       {notice && (
         <p

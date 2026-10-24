@@ -12,14 +12,20 @@ export interface DashboardFilters {
 
 /** Drop into the Admin / HR dashboard and pass the same filters the charts use. */
 export function AiSummaryCard({ filters }: { filters: DashboardFilters }) {
-  const [state, setState] = useState<
-    { kind: "idle" } | { kind: "loading" } | { kind: "done"; bullets: string[] } | { kind: "error"; message: string }
-  >({ kind: "idle" });
+  // Every result remembers the filters it was made for, so bullets never outlive a filter change.
+  const key = JSON.stringify({ start: filters.start ?? "", end: filters.end ?? "", department: filters.department ?? "" });
+  const [result, setResult] = useState<
+    { key: string } & ({ kind: "loading" } | { kind: "done"; bullets: string[] } | { kind: "error"; message: string })
+  >({ key: "", kind: "error", message: "" });
+  const state = result.key === key ? result : { kind: "idle" as const };
+  const stale = result.key !== "" && result.key !== key && result.kind === "done";
 
   async function summarize() {
-    setState({ kind: "loading" });
+    const forKey = key;
+    setResult({ key: forKey, kind: "loading" });
     const res = await postAi<{ bullets: string[] }>("summary", filters);
-    setState(res.ok ? { kind: "done", bullets: res.data.bullets } : { kind: "error", message: res.message });
+    // Ignore a reply for filters the user has already changed.
+    setResult((r) => (r.key !== forKey ? r : res.ok ? { key: forKey, kind: "done", bullets: res.data.bullets } : { key: forKey, kind: "error", message: res.message }));
   }
 
   return (
@@ -35,7 +41,11 @@ export function AiSummaryCard({ filters }: { filters: DashboardFilters }) {
         </button>
       </div>
 
-      {state.kind === "idle" && <p className="text-sm text-zinc-500">Get 3–5 insights from the numbers on this dashboard.</p>}
+      {state.kind === "idle" && (
+        <p className="text-sm text-zinc-500">
+          {stale ? "The filters changed. Summarize again for the new numbers." : "Get 3–5 insights from the numbers on this dashboard."}
+        </p>
+      )}
       {state.kind === "loading" && (
         <ul className="space-y-2" aria-busy>
           {[0, 1, 2].map((i) => (

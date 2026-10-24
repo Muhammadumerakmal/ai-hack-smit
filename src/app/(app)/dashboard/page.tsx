@@ -1,22 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { AiSummaryCard } from "@/components/ai/AiSummaryCard";
 import { CheckInWidget } from "@/components/attendance/CheckInWidget";
+import { AnnouncementFeed, type Announcement } from "@/components/dashboard/AnnouncementFeed";
+import { BarChart, DataTable, RankedList, TrendChart, type BarItem } from "@/components/dashboard/charts";
+import { FilterBar, rangeLabel, todayIsoLocal, type Filters } from "@/components/dashboard/FilterBar";
+import { Avatar, cx, DashboardSkeleton, DIcon, Kpi, LinkArrow, Meter, Panel, Skeleton, timeAgo, ViewToggle } from "@/components/dashboard/primitives";
 import { useMe } from "@/components/shell/AppShell";
-import { Button, Card, EmptyState, ErrorState, Field, Input, Loading, PageHeader, Select, Stat, Table, Td } from "@/components/ui";
-import { fmtDate, fmtDateTime, money, qs, useApi } from "@/lib/client";
+import { EmptyState, ErrorState } from "@/components/ui";
+import { money, qs, useApi } from "@/lib/client";
 
 // M7 dashboards: Admin / HR company view with filters, Employee personal view. All numbers come from /api/dashboard.
 
-interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  authorName: string;
-  createdAt: string;
-}
 interface DeptRates {
   department: string;
   attendanceRatePct: number | null;
@@ -66,311 +63,503 @@ interface PersonalDashboard {
 }
 
 const pctText = (n: number | null | undefined) => (n == null ? "—" : `${n}%`);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 
 export default function DashboardPage() {
   const me = useMe();
   return me.role === "EMPLOYEE" ? <PersonalView /> : <CompanyView />;
 }
 
+function PageTitle({ title, context, actions }: { title: string; context: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.7rem]">{title}</h1>
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{context}</p>
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** A chart panel with a Chart/Table switch, so every value is reachable without hovering. */
+function ChartPanel({
+  title,
+  subtitle,
+  table,
+  children,
+  className,
+  extra,
+}: {
+  title: string;
+  subtitle?: string;
+  table: { head: string[]; rows: (string | number)[][] } | null;
+  children: ReactNode;
+  className?: string;
+  extra?: ReactNode;
+}) {
+  const [view, setView] = useState<"chart" | "table">("chart");
+  return (
+    <Panel
+      title={title}
+      subtitle={subtitle}
+      className={className}
+      actions={
+        <>
+          {extra}
+          {table && table.rows.length > 0 && <ViewToggle value={view} onChange={setView} />}
+        </>
+      }
+    >
+      {view === "table" && table ? <DataTable head={table.head} rows={table.rows} /> : children}
+    </Panel>
+  );
+}
+
 function CompanyView() {
   const me = useMe();
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" });
-  const [draft, setDraft] = useState({ start: `${today.slice(0, 7)}-01`, end: today, department: "" });
-  const [filters, setFilters] = useState(draft);
-  const { data, error, loading, reload } = useApi<CompanyDashboard>(`/api/dashboard${qs(filters)}`);
+  const today = todayIsoLocal();
+  const [filters, setFilters] = useState<Filters>({ start: `${today.slice(0, 7)}-01`, end: today, department: "" });
+  const { data, error, loading, reload } = useApi<CompanyDashboard>(`/api/dashboard${qs({ ...filters })}`);
+  const refreshing = loading && !!data;
 
   return (
     <>
-      <PageHeader title={me.role === "ADMIN" ? "Company dashboard" : "HR dashboard"} subtitle={`${me.companyName} · all numbers are computed from the records in the app`} />
+      <PageTitle
+        title={me.role === "ADMIN" ? "Company dashboard" : "HR dashboard"}
+        context={
+          <>
+            {me.companyName} · {rangeLabel(filters)} · {filters.department || "All departments"}
+          </>
+        }
+        actions={
+          <button
+            type="button"
+            onClick={reload}
+            disabled={loading}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <DIcon name="refresh" className={cx("h-4 w-4", loading && "animate-spin")} />
+            Refresh
+          </button>
+        }
+      />
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setFilters(draft);
-        }}
-        className="mb-6 flex flex-wrap items-end gap-3"
-      >
-        <Field label="From">
-          <Input type="date" value={draft.start} max={draft.end} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />
-        </Field>
-        <Field label="To">
-          <Input type="date" value={draft.end} min={draft.start} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
-        </Field>
-        <Field label="Department">
-          <Select value={draft.department} onChange={(e) => setDraft({ ...draft, department: e.target.value })}>
-            <option value="">All departments</option>
-            {data?.departments.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </Select>
-        </Field>
-        <Button type="submit">Apply</Button>
-      </form>
+      <FilterBar applied={filters} departments={data?.departments ?? []} onApply={setFilters} busy={loading} />
 
-      {error && <ErrorState message={error} onRetry={reload} />}
-      {loading && !data && <Loading />}
+      {error && (
+        <div className="mb-4">
+          <ErrorState message={error} onRetry={reload} />
+        </div>
+      )}
+      {!data && loading && <DashboardSkeleton />}
+
       {data && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-            <Stat label="Headcount" value={data.kpis.headcount.total} hint={`${data.kpis.headcount.probation} on probation`} />
-            <Stat label="Present today" value={data.kpis.today.present} tone="good" hint={`${data.kpis.today.notCheckedIn} not checked in`} />
-            <Stat label="On leave today" value={data.kpis.today.onLeave} />
-            <Stat label="Late today" value={data.kpis.today.late} tone={data.kpis.today.late ? "warn" : "default"} />
-            <Stat
-              label="Pending approvals"
-              value={data.kpis.approvals.total}
-              tone={data.kpis.approvals.total ? "warn" : "default"}
-              hint={`${data.kpis.approvals.pendingLeave} leave · ${data.kpis.approvals.pendingAttendanceCorrections} corrections`}
-            />
-          </div>
+        <div className={cx("space-y-6 transition-opacity duration-300", refreshing && "opacity-60")} aria-busy={refreshing}>
+          {/* Today */}
+          <section aria-label="Today" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            <Kpi label="Headcount" icon="people" value={data.kpis.headcount.total} hint={`${data.kpis.headcount.active} active · ${data.kpis.headcount.probation} on probation`} />
+            <Kpi label="Present today" icon="check" tone="good" value={data.kpis.today.present} hint={`${data.kpis.today.notCheckedIn} not checked in yet`} />
+            <Kpi label="On leave today" icon="leave" tone="info" value={data.kpis.today.onLeave} hint="Approved leave covering today" />
+            <Kpi label="Late today" icon="clock" tone={data.kpis.today.late ? "warn" : "default"} value={data.kpis.today.late} hint="Checked in after the grace time" />
+            <Link
+              href="/leave"
+              className="col-span-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50 sm:col-span-1"
+              aria-label={`Pending approvals: ${data.kpis.approvals.total}. Open the approval inbox.`}
+            >
+              <Kpi
+                className="h-full transition-colors hover:border-teal-300 dark:hover:border-teal-800"
+                label="Pending approvals"
+                icon="inbox"
+                tone={data.kpis.approvals.total ? "warn" : "default"}
+                value={data.kpis.approvals.total}
+                hint={`${plural(data.kpis.approvals.pendingLeave, "leave request")} · ${plural(data.kpis.approvals.pendingAttendanceCorrections, "correction")}`}
+              />
+            </Link>
+          </section>
 
           {data.admin && <AdminKpis d={data} />}
 
-          <div className="grid gap-3 md:grid-cols-3">
-            <Stat label="Attendance rate" value={pctText(data.kpis.attendance.attendanceRatePct)} tone="good" />
-            <Stat label="Late %" value={pctText(data.kpis.attendance.latePct)} tone="warn" />
-            <Stat label="Absenteeism" value={pctText(data.kpis.attendance.absenteeismPct)} tone="bad" />
-          </div>
+          {/* Attendance health for the selected period */}
+          <section aria-label="Attendance in this period" className="grid grid-cols-3 gap-3">
+            <RateTile label="Attendance rate" value={data.kpis.attendance.attendanceRatePct} tone="good" />
+            <RateTile label="Late %" value={data.kpis.attendance.latePct} tone="warn" />
+            <RateTile label="Absenteeism" value={data.kpis.attendance.absenteeismPct} tone="bad" />
+          </section>
 
           <AiSummaryCard filters={{ start: filters.start, end: filters.end, department: filters.department || undefined }} />
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="Attendance trend (daily rate)">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <ChartPanel
+              className="lg:col-span-2"
+              title="Attendance trend"
+              subtitle="Daily attendance rate, working days only"
+              table={{ head: ["Date", "Attendance"], rows: data.trend.map((p) => [p.date, `${p.attendanceRatePct}%`]) }}
+            >
               {data.trend.length ? (
-                <BarList items={data.trend.map((p) => ({ label: fmtDate(p.date), value: p.attendanceRatePct }))} max={100} suffix="%" />
+                <TrendChart label="Daily attendance rate" points={data.trend.map((p) => ({ date: p.date, value: p.attendanceRatePct }))} />
               ) : (
-                <EmptyState title="No attendance yet" hint="Daily rates appear once employees check in." />
+                <EmptyState title="No attendance yet" hint="Daily rates appear once employees start checking in." />
               )}
-            </Card>
-            <Card title="Absenteeism by department">
-              {data.kpis.attendance.byDepartment.length ? (
-                <BarList items={data.kpis.attendance.byDepartment.map((d) => ({ label: d.department, value: d.absenteeismPct ?? 0 }))} suffix="%" tone="bad" />
-              ) : (
-                <EmptyState title="No attendance records in this period" />
-              )}
-            </Card>
-            <Card title="Leave by type (approved days)">
-              <BarList items={data.kpis.leave.approvedDaysByType.map((t) => ({ label: t.type, value: t.days, note: t.utilizationPct == null ? "unlimited" : `${t.utilizationPct}% of quota` }))} />
-            </Card>
-            <Card title="Top 5 late-comers">
+            </ChartPanel>
+            <Panel title="Top late-comers" subtitle="Most late check-ins in this period">
               {data.kpis.topLateComers.length ? (
-                <Table head={["Employee", "Department", "Late days"]}>
-                  {data.kpis.topLateComers.map((l) => (
-                    <tr key={l.name}>
-                      <Td>{l.name}</Td>
-                      <Td>{l.department}</Td>
-                      <Td className="tabular-nums">{l.lateCount}</Td>
-                    </tr>
-                  ))}
-                </Table>
+                <RankedList unit="late days" items={data.kpis.topLateComers.map((l) => ({ name: l.name, sub: l.department, value: l.lateCount }))} />
               ) : (
-                <EmptyState title="Nobody was late in this period" />
+                <EmptyState title="Nobody was late" hint="Great punctuality in this period." />
               )}
-            </Card>
-            <Card title="Headcount by department">
-              <BarList items={data.kpis.headcount.byDepartment.map((d) => ({ label: d.department, value: d.count }))} />
-            </Card>
-            <Card title="Leave utilization (approved ÷ quota)">
-              {data.leaveUtilization.some((u) => u.days) ? (
-                <Table head={["Department", "Type", "Days", "Utilization"]}>
-                  {data.leaveUtilization
-                    .filter((u) => u.days)
-                    .map((u) => (
-                      <tr key={`${u.department}-${u.type}`}>
-                        <Td>{u.department}</Td>
-                        <Td>{u.type}</Td>
-                        <Td className="tabular-nums">{u.days}</Td>
-                        <Td className="tabular-nums">{pctText(u.utilizationPct)}</Td>
-                      </tr>
-                    ))}
-                </Table>
-              ) : (
-                <EmptyState title="No approved leave in this period" />
-              )}
-            </Card>
+            </Panel>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <ChartPanel
+              title="Absenteeism by department"
+              subtitle="Absent days ÷ expected working days"
+              table={{ head: ["Department", "Absenteeism", "Late %", "Attendance"], rows: data.kpis.attendance.byDepartment.map((d) => [d.department, pctText(d.absenteeismPct), pctText(d.latePct), pctText(d.attendanceRatePct)]) }}
+            >
+              <BarChart
+                items={data.kpis.attendance.byDepartment.map((d) => ({ label: d.department, value: d.absenteeismPct ?? 0 }))}
+                max={Math.max(10, ...data.kpis.attendance.byDepartment.map((d) => d.absenteeismPct ?? 0))}
+                format={(n) => `${n}%`}
+                empty={<EmptyState title="No attendance records in this period" />}
+              />
+            </ChartPanel>
+            <ChartPanel
+              title="Leave by type"
+              subtitle="Approved working days in this period"
+              table={{ head: ["Type", "Days", "Of quota"], rows: data.kpis.leave.approvedDaysByType.map((t) => [t.type, t.days, t.utilizationPct == null ? "unlimited" : `${t.utilizationPct}%`]) }}
+            >
+              <BarChart
+                items={data.kpis.leave.approvedDaysByType.map<BarItem>((t) => ({ label: t.type, value: t.days, note: t.utilizationPct == null ? "No quota" : `${t.utilizationPct}% of quota used` }))}
+                format={(n) => plural(n, "day")}
+                empty={<EmptyState title="No leave types yet" hint="Admin adds leave types in Company setup." />}
+              />
+            </ChartPanel>
+            <ChartPanel
+              className="md:col-span-2 xl:col-span-1"
+              title="Headcount by department"
+              subtitle="Active and probation on the end date"
+              table={{ head: ["Department", "Employees"], rows: data.kpis.headcount.byDepartment.map((d) => [d.department, d.count]) }}
+            >
+              <BarChart
+                items={data.kpis.headcount.byDepartment.map((d) => ({ label: d.department, value: d.count }))}
+                empty={<EmptyState title="No employees yet" hint="HR registers employees from the Employees page." />}
+              />
+            </ChartPanel>
+          </div>
+
+          <UtilizationPanel rows={data.leaveUtilization} />
 
           {data.admin && <AdminCharts d={data} />}
 
-          <Announcements items={data.announcements} />
+          <Panel
+            title="Announcements"
+            subtitle="Latest company news"
+            actions={
+              <Link href="/announcements">
+                <LinkArrow>All announcements</LinkArrow>
+              </Link>
+            }
+          >
+            {data.announcements.length ? <AnnouncementFeed items={data.announcements} compact /> : <EmptyState title="No announcements yet" />}
+          </Panel>
         </div>
       )}
     </>
   );
 }
 
-function AdminKpis({ d }: { d: CompanyDashboard }) {
-  const p = d.admin!.payrollCost;
+function RateTile({ label, value, tone }: { label: string; value: number | null; tone: "good" | "warn" | "bad" }) {
+  const bar = { good: "bg-teal-600", warn: "bg-amber-500", bad: "bg-red-500" }[tone];
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Stat label="Attrition (YTD)" value={pctText(d.kpis.attrition?.attritionPct)} hint={`${d.kpis.attrition?.exits ?? 0} exits`} />
-      <Stat label="Payroll cost (gross)" value={p.found ? money(p.totalGross) : "—"} hint={p.found ? `${p.month} · ${p.status.toLowerCase()}` : p.message} />
-      <Stat label="Payroll cost (net)" value={p.found ? money(p.totalNet) : "—"} />
-      <Stat label="Average salary (gross)" value={p.found ? money(p.averageGross) : "—"} />
+    <div className="min-w-0 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+      <p className="truncate text-[11px] font-medium text-zinc-500 sm:text-xs dark:text-zinc-400">{label}</p>
+      <p className="mt-1.5 text-xl font-semibold tracking-tight sm:text-2xl">{pctText(value)}</p>
+      <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" aria-hidden>
+        <div className={cx("h-full rounded-full", bar)} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
+      </div>
     </div>
   );
 }
 
+function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"] }) {
+  const used = rows.filter((u) => u.days);
+  return (
+    <Panel title="Leave utilization" subtitle="Approved days ÷ (yearly quota × headcount), by department and type">
+      {!used.length ? (
+        <EmptyState title="No approved leave in this period" />
+      ) : (
+        <>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800">
+                  <th className="py-2.5 pr-3 font-medium">Department</th>
+                  <th className="px-3 py-2.5 font-medium">Type</th>
+                  <th className="px-3 py-2.5 text-right font-medium">Days</th>
+                  <th className="py-2.5 pl-3 font-medium">Utilization</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {used.map((u) => (
+                  <tr key={`${u.department}-${u.type}`}>
+                    <td className="py-2.5 pr-3 font-medium">{u.department}</td>
+                    <td className="px-3 py-2.5 capitalize text-zinc-600 dark:text-zinc-300">{u.type}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{u.days}</td>
+                    <td className="py-2.5 pl-3">
+                      <UtilBar pct={u.utilizationPct} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <ul className="space-y-2 sm:hidden">
+            {used.map((u) => (
+              <li key={`${u.department}-${u.type}`} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium">{u.department}</span>
+                  <span className="shrink-0 text-xs capitalize text-zinc-500">
+                    {u.type} · {plural(u.days, "day")}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <UtilBar pct={u.utilizationPct} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function UtilBar({ pct }: { pct: number | null }) {
+  if (pct == null) return <span className="text-xs text-zinc-500">No quota</span>;
+  return (
+    <span className="flex items-center gap-2">
+      <span className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-teal-100 dark:bg-teal-950" aria-hidden>
+        <span className="block h-full rounded-full bg-teal-600" style={{ width: `${Math.min(100, pct)}%` }} />
+      </span>
+      <span className="w-12 shrink-0 text-right text-xs tabular-nums text-zinc-700 dark:text-zinc-300">{pct}%</span>
+    </span>
+  );
+}
+
+function AdminKpis({ d }: { d: CompanyDashboard }) {
+  const p = d.admin!.payrollCost;
+  return (
+    <section aria-label="Company" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Kpi label="Attrition (YTD)" icon="exit" value={pctText(d.kpis.attrition?.attritionPct)} hint={`${plural(d.kpis.attrition?.exits ?? 0, "exit")} this year`} />
+      <Kpi label="Payroll cost (gross)" icon="money" value={p.found ? money(p.totalGross) : "—"} hint={p.found ? `${monthLabel(p.month)} · ${p.status.toLowerCase()}` : p.message} />
+      <Kpi label="Payroll cost (net)" icon="money" value={p.found ? money(p.totalNet) : "—"} hint={p.found ? "After deductions and tax" : "Run payroll to see costs"} />
+      <Kpi label="Average salary (gross)" icon="trend" value={p.found ? money(p.averageGross) : "—"} hint={p.found ? "Mean gross per employee" : undefined} />
+    </section>
+  );
+}
+
+const ACTION_TONE: Record<string, string> = {
+  create: "bg-teal-500",
+  approve: "bg-teal-500",
+  finalize: "bg-teal-500",
+  update: "bg-sky-500",
+  delete: "bg-red-500",
+  reject: "bg-red-500",
+  deactivate: "bg-red-500",
+};
+
 function AdminCharts({ d }: { d: CompanyDashboard }) {
   const a = d.admin!;
+  const p = a.payrollCost;
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <Card title={`Payroll cost by department${a.payrollCost.found ? ` (${a.payrollCost.month})` : ""}`}>
-        {a.payrollCost.found ? (
-          <BarList items={a.payrollCost.byDepartment.map((x) => ({ label: x.name, value: x.gross, note: `net ${money(x.net)}` }))} format={money} />
+    <div className="grid gap-4 md:grid-cols-2">
+      <ChartPanel
+        title="Payroll cost by department"
+        subtitle={p.found ? `Gross pay, ${monthLabel(p.month)}` : "Gross pay"}
+        table={p.found ? { head: ["Department", "Gross", "Net"], rows: p.byDepartment.map((x) => [x.name, money(x.gross), money(x.net)]) } : null}
+      >
+        {p.found ? (
+          <BarChart items={p.byDepartment.map((x) => ({ label: x.name, value: x.gross, note: `Net ${money(x.net)}` }))} format={money} />
         ) : (
-          <EmptyState title="No payroll run yet" />
+          <EmptyState title="No payroll run yet" hint="HR creates the monthly draft on the Payroll page." />
         )}
-      </Card>
-      <Card title="Average gross salary by designation">
-        {a.payrollCost.found ? <BarList items={a.payrollCost.byDesignation.map((x) => ({ label: x.name, value: x.averageGross }))} format={money} /> : <EmptyState title="No payroll run yet" />}
-      </Card>
-      <Card title="Gender">
-        <BarList items={a.workforce.gender.map((g) => ({ label: g.label, value: g.count }))} />
-      </Card>
-      <Card title="Tenure">
-        <BarList items={a.workforce.tenure.map((t) => ({ label: t.label, value: t.count }))} />
-      </Card>
-      <Card
-        title="Recent activity (audit)"
-        className="lg:col-span-2"
+      </ChartPanel>
+      <ChartPanel
+        title="Average salary by designation"
+        subtitle="Mean gross pay"
+        table={p.found ? { head: ["Designation", "Average gross"], rows: p.byDesignation.map((x) => [x.name, money(x.averageGross)]) } : null}
+      >
+        {p.found ? <BarChart items={p.byDesignation.map((x) => ({ label: x.name, value: x.averageGross }))} format={money} /> : <EmptyState title="No payroll run yet" />}
+      </ChartPanel>
+      <ChartPanel title="Gender" subtitle="Current headcount" table={{ head: ["Gender", "Employees"], rows: a.workforce.gender.map((g) => [g.label, g.count]) }}>
+        <BarChart items={a.workforce.gender.map((g) => ({ label: g.label, value: g.count }))} empty={<EmptyState title="No employees yet" />} />
+      </ChartPanel>
+      <ChartPanel title="Tenure" subtitle="Time since joining" table={{ head: ["Tenure", "Employees"], rows: a.workforce.tenure.map((t) => [t.label, t.count]) }}>
+        <BarChart items={a.workforce.tenure.map((t) => ({ label: t.label, value: t.count }))} empty={<EmptyState title="No employees yet" />} />
+      </ChartPanel>
+      <Panel
+        className="md:col-span-2"
+        title="Recent activity"
+        subtitle="Latest entries in the audit log"
         actions={
-          <Link href="/audit" className="text-xs text-teal-700 hover:underline dark:text-teal-400">
-            Full audit log →
+          <Link href="/audit">
+            <LinkArrow>Full audit log</LinkArrow>
           </Link>
         }
       >
         {a.auditFeed.length ? (
-          <ul className="divide-y divide-zinc-100 text-sm dark:divide-zinc-900">
-            {a.auditFeed.map((x) => (
-              <li key={x.id} className="flex justify-between gap-3 py-1.5">
-                <span>
-                  <span className="font-medium">{x.actorName || "—"}</span> {x.action.replace(/_/g, " ")} {x.entity.replace(/_/g, " ")}
-                </span>
-                <span className="shrink-0 text-xs text-zinc-500">{fmtDateTime(x.createdAt)}</span>
-              </li>
-            ))}
-          </ul>
+          <ol className="grid gap-x-8 sm:grid-cols-2">
+            {a.auditFeed.map((x) => {
+              const verb = x.action.split("_")[0];
+              return (
+                <li key={x.id} className="flex items-start gap-3 border-b border-zinc-100 py-2.5 last:border-0 dark:border-zinc-800 sm:[&:nth-last-child(2):nth-child(odd)]:border-0">
+                  <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", ACTION_TONE[verb] ?? "bg-zinc-400")} aria-hidden />
+                  <span className="min-w-0 flex-1 text-[13px] leading-snug">
+                    <span className="font-medium text-zinc-900 dark:text-zinc-100">{x.actorName || "System"}</span>{" "}
+                    <span className="text-zinc-600 dark:text-zinc-300">
+                      {x.action.replace(/_/g, " ")} · {x.entity.replace(/_/g, " ")}
+                    </span>
+                    <span className="block text-[11px] text-zinc-400">{timeAgo(x.createdAt)}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
         ) : (
           <EmptyState title="No activity yet" />
         )}
-      </Card>
+      </Panel>
     </div>
   );
+}
+
+function greeting() {
+  const h = Number(new Date().toLocaleString("en-GB", { hour: "2-digit", hour12: false, timeZone: "Asia/Karachi" }));
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
 function PersonalView() {
   const me = useMe();
   const { data, error, loading, reload } = useApi<PersonalDashboard>("/api/dashboard");
+  const todayLong = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Karachi" });
+
   return (
     <>
-      <PageHeader title={`Hello, ${me.name.split(" ")[0]}`} subtitle="Your attendance, leave and pay at a glance." />
+      <PageTitle title={`${greeting()}, ${me.name.split(" ")[0]}`} context={`${todayLong} · your attendance, leave and pay at a glance`} />
       <div className="space-y-6">
-        <CheckInWidget onChange={reload} />
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2">
+            <CheckInWidget onChange={reload} />
+          </div>
+          <Panel title="This week" subtitle="Hours worked, Monday to today">
+            {data ? (
+              <div className="space-y-3">
+                <p className="text-3xl font-semibold tracking-tight">
+                  {data.week.hours}
+                  <span className="ml-1 text-base font-medium text-zinc-500">/ {data.week.target} h</span>
+                </p>
+                <Meter label="Hours this week against the weekly target" value={data.week.hours} max={data.week.target} />
+                <p className="text-xs text-zinc-500">
+                  {data.week.pctOfTarget == null ? "No hours yet this week" : `${data.week.pctOfTarget}% of the ${data.week.target} h target`}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <Skeleton className="h-8 w-28" />
+                <Skeleton className="h-2 w-full" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            )}
+          </Panel>
+        </div>
+
         {error && <ErrorState message={error} onRetry={reload} />}
-        {loading && !data && <Loading />}
+        {loading && !data && <DashboardSkeleton tiles={3} />}
+
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <Stat label="Hours this week" value={`${data.week.hours} h`} hint={`of ${data.week.target} h (${pctText(data.week.pctOfTarget)})`} />
-              <Stat label="Late this month" value={data.month.lateCount} tone={data.month.lateCount ? "warn" : "good"} />
-              <Stat label="Attendance this month" value={pctText(data.month.attendanceRatePct)} tone="good" />
-              <Stat
-                label="Last payslip (net)"
-                value={data.lastPayslip ? money(data.lastPayslip.net) : "—"}
-                hint={data.lastPayslip ? data.lastPayslip.month : "No payslip yet"}
-              />
-            </div>
-            <Card
+            <section aria-label="This month" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+              <Kpi label="Late this month" icon="clock" tone={data.month.lateCount ? "warn" : "good"} value={data.month.lateCount} hint={data.month.lateCount ? "Check-ins after the grace time" : "On time every day"} />
+              <Kpi label="Attendance this month" icon="check" tone="good" value={pctText(data.month.attendanceRatePct)} hint="Present, late and half days count" />
+              <Link href="/payslips" className="col-span-2 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50 lg:col-span-1" aria-label="Last payslip. Open payslips.">
+                <Kpi
+                  className="h-full transition-colors hover:border-teal-300 dark:hover:border-teal-800"
+                  label="Last payslip (net)"
+                  icon="doc"
+                  value={data.lastPayslip ? money(data.lastPayslip.net) : "—"}
+                  hint={data.lastPayslip ? `${monthLabel(data.lastPayslip.month)} · gross ${money(data.lastPayslip.gross)}` : "No payslip yet"}
+                />
+              </Link>
+            </section>
+
+            <Panel
               title="Leave balance"
+              subtitle={`Days left this year`}
               actions={
-                <Link href="/leave" className="text-xs text-teal-700 hover:underline dark:text-teal-400">
-                  Apply for leave →
+                <Link href="/leave">
+                  <LinkArrow>Apply for leave</LinkArrow>
                 </Link>
               }
             >
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {data.leaveBalance.map((b) => (
-                  <div key={b.type} className="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-900">
-                    <p className="text-xs text-zinc-500">{b.name}</p>
-                    <p className="text-lg font-semibold tabular-nums">{b.remaining == null ? "∞" : b.remaining}</p>
-                    <p className="text-[11px] text-zinc-500">
-                      {b.quota == null ? "unlimited" : `of ${b.quota}`} · {b.usedApproved} used{b.pending ? ` · ${b.pending} pending` : ""}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-            <Announcements items={data.announcements} />
-            <p className="text-sm text-zinc-500">Questions about your leave, attendance or company policy? Ask the assistant (✦ button, bottom right).</p>
+              {data.leaveBalance.length ? (
+                <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {data.leaveBalance.map((b) => (
+                    <li key={b.type} className="rounded-xl border border-zinc-200 p-3 sm:p-4 dark:border-zinc-800">
+                      <p className="text-xs font-medium text-zinc-500">{b.name}</p>
+                      <p className="mt-1 text-2xl font-semibold tracking-tight">
+                        {b.remaining == null ? "∞" : b.remaining}
+                        {b.quota != null && <span className="ml-1 text-sm font-medium text-zinc-400">/ {b.quota}</span>}
+                      </p>
+                      {b.quota != null && (
+                        <div className="mt-2">
+                          <Meter label={`${b.name} days left`} value={b.remaining ?? 0} max={b.quota} />
+                        </div>
+                      )}
+                      <p className="mt-2 text-[11px] text-zinc-500">
+                        {b.quota == null ? "No yearly limit" : `${b.usedApproved} used`}
+                        {b.pending ? ` · ${b.pending} pending` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState title="No leave types yet" />
+              )}
+            </Panel>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <Panel
+                className="lg:col-span-2"
+                title="Announcements"
+                actions={
+                  <Link href="/announcements">
+                    <LinkArrow>All</LinkArrow>
+                  </Link>
+                }
+              >
+                {data.announcements.length ? <AnnouncementFeed items={data.announcements} compact /> : <EmptyState title="No announcements yet" />}
+              </Panel>
+              <section className="flex flex-col justify-between gap-4 rounded-2xl border border-violet-200/70 bg-violet-50/60 p-5 dark:border-violet-900/50 dark:bg-violet-950/20">
+                <div>
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white">
+                    <DIcon name="sparkle" />
+                  </span>
+                  <h2 className="mt-3 text-sm font-semibold">Ask your assistant</h2>
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                    “How many sick leaves do I have left?” or “What time counts as late?” It answers from your own records and company policy.
+                  </p>
+                </div>
+                <p className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
+                  <Avatar name="AI" size="sm" />
+                  Use the “Ask the assistant” button at the bottom right.
+                </p>
+              </section>
+            </div>
           </>
         )}
       </div>
     </>
-  );
-}
-
-function Announcements({ items }: { items: Announcement[] }) {
-  return (
-    <Card
-      title="Announcements"
-      actions={
-        <Link href="/announcements" className="text-xs text-teal-700 hover:underline dark:text-teal-400">
-          All →
-        </Link>
-      }
-    >
-      {items.length ? (
-        <ul className="space-y-3">
-          {items.map((a) => (
-            <li key={a.id}>
-              <p className="text-sm font-medium">{a.title}</p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">{a.body}</p>
-              <p className="text-[11px] text-zinc-400">
-                {a.authorName} · {fmtDateTime(a.createdAt)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptyState title="No announcements" />
-      )}
-    </Card>
-  );
-}
-
-/** Plain horizontal bars: label, bar, value. Enough for every chart on this page. */
-function BarList({
-  items,
-  max,
-  suffix = "",
-  format,
-  tone = "teal",
-}: {
-  items: { label: string; value: number; note?: string }[];
-  max?: number;
-  suffix?: string;
-  format?: (n: number) => string;
-  tone?: "teal" | "bad";
-}) {
-  if (!items.length) return <EmptyState title="No data for this period" />;
-  const top = max ?? Math.max(...items.map((i) => i.value), 1);
-  return (
-    <ul className="space-y-1.5">
-      {items.map((i) => (
-        <li key={i.label} className="grid grid-cols-[minmax(0,7rem)_1fr_auto] items-center gap-2 text-xs">
-          <span className="truncate text-zinc-600 dark:text-zinc-400" title={i.label}>
-            {i.label}
-          </span>
-          <span className="h-2.5 overflow-hidden rounded bg-zinc-100 dark:bg-zinc-900">
-            <span className={`block h-full rounded ${tone === "bad" ? "bg-red-500" : "bg-teal-600"}`} style={{ width: `${Math.min(100, (i.value / top) * 100)}%` }} />
-          </span>
-          <span className="tabular-nums text-zinc-700 dark:text-zinc-300">
-            {format ? format(i.value) : `${i.value}${suffix}`}
-            {i.note && <span className="ml-1 text-zinc-400">({i.note})</span>}
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

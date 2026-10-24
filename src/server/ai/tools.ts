@@ -37,7 +37,12 @@ export async function resolveEmployeeRef(actor: Session, ref?: string): Promise<
     if (!actor.employeeId) throw badRequest("Your login is not linked to an employee record.");
     return actor.employeeId;
   }
-  if (actor.role === "EMPLOYEE") throw forbidden("Employees can only see their own data.");
+  if (actor.role === "EMPLOYEE") {
+    // Models often pass the user's own name ("Sara Ahmed", "sara") or code instead of "me".
+    // Accept only an exact match on the caller's own record; anything else is someone else.
+    if (actor.employeeId && (await isOwnReference(actor.employeeId, r))) return actor.employeeId;
+    throw forbidden("Employees can only see their own data.");
+  }
   const matches = await db.employee.findMany({
     where: { OR: [{ code: { equals: r, mode: "insensitive" } }, { fullName: { contains: r, mode: "insensitive" } }] },
     select: { id: true, code: true, fullName: true },
@@ -48,6 +53,15 @@ export async function resolveEmployeeRef(actor: Session, ref?: string): Promise<
     throw badRequest(`"${r}" matches several employees: ${matches.map((m) => `${m.fullName} (${m.code})`).join(", ")}. Ask which one.`);
   }
   return matches[0].id;
+}
+
+async function isOwnReference(employeeId: string, ref: string): Promise<boolean> {
+  const me = await db.employee.findUnique({ where: { id: employeeId }, select: { code: true, fullName: true, email: true } });
+  if (!me) return false;
+  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+  const r = norm(ref);
+  const name = norm(me.fullName);
+  return r === norm(me.code) || r === norm(me.email) || r === name || name.split(" ").includes(r);
 }
 
 interface AiTool<S extends z.ZodObject> {
@@ -63,7 +77,8 @@ const tool = <S extends z.ZodObject>(t: AiTool<S>) => t;
 export const TOOLS = [
   tool({
     name: "get_headcount",
-    description: "Number of active + probation employees on a date, in total and per department.",
+    description:
+      "Number of active + probation employees on a date: the total AND a per-department breakdown. Omit `department` to get every department in one call.",
     roles: ["ADMIN", "HR"],
     input: z.object({ department, asOf: isoDate.optional().describe("Date YYYY-MM-DD, default today.") }),
     run: (actor, a) => getHeadcount(actor, a),

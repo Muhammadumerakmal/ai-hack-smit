@@ -32,8 +32,13 @@ export interface LlmResponse {
   content: string | null;
   toolCalls: ToolCall[];
   model: string;
+  /** "stop" | "tool_calls" | "length" (cut off by the token limit) | … */
+  finishReason?: string;
   usage?: { prompt: number; completion: number };
 }
+
+/** Upper bound on a single reply; keeps cost and latency predictable inside the 15 s budget. */
+const MAX_COMPLETION_TOKENS = 800;
 
 export interface LlmClient {
   complete(req: LlmRequest): Promise<LlmResponse>;
@@ -51,26 +56,45 @@ class OpenAiClient implements LlmClient {
     this.model = process.env.AI_MODEL || "gpt-4.1-mini";
   }
 
+  /** Set when the configured model rejected `temperature` (reasoning models do); later calls skip it. */
+  private noTemperature = false;
+
   async complete(req: LlmRequest): Promise<LlmResponse> {
-    const res = await this.client.chat.completions.create(
-      {
-        model: this.model,
-        temperature: 0.2,
-        messages: req.messages.map(toOpenAi),
-        ...(req.tools?.length
-          ? { tools: req.tools.map((t) => ({ type: "function" as const, function: t })), tool_choice: "auto" as const }
-          : {}),
-        ...(req.json ? { response_format: { type: "json_object" as const } } : {}),
-      },
-      { signal: req.signal },
-    );
-    const msg = res.choices[0]?.message;
+    const create = (withTemperature: boolean) =>
+      this.client.chat.completions.create(
+        {
+          model: this.model,
+          ...(withTemperature ? { temperature: 0.2 } : {}),
+          max_completion_tokens: MAX_COMPLETION_TOKENS,
+          messages: req.messages.map(toOpenAi),
+          ...(req.tools?.length
+            ? { tools: req.tools.map((t) => ({ type: "function" as const, function: t })), tool_choice: "auto" as const }
+            : {}),
+          ...(req.json ? { response_format: { type: "json_object" as const } } : {}),
+        },
+        { signal: req.signal },
+      );
+
+    let res;
+    try {
+      res = await create(!this.noTemperature);
+    } catch (err) {
+      // A 400 about `temperature` is a model capability issue, not a failed request: retry once without it.
+      // Safe to repeat: chat completions have no side effects.
+      if (this.noTemperature || (err as { status?: number }).status !== 400 || !/temperature/i.test(String((err as Error).message))) throw err;
+      this.noTemperature = true;
+      res = await create(false);
+    }
+
+    const choice = res.choices?.[0];
+    const msg = choice?.message;
     return {
       content: msg?.content ?? null,
       toolCalls: (msg?.tool_calls ?? [])
         .filter((c) => c.type === "function")
         .map((c) => ({ id: c.id, name: c.function.name, arguments: c.function.arguments })),
       model: res.model,
+      finishReason: choice?.finish_reason ?? undefined,
       usage: res.usage ? { prompt: res.usage.prompt_tokens, completion: res.usage.completion_tokens } : undefined,
     };
   }

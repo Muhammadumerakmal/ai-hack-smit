@@ -53,25 +53,54 @@ export function errorResponse(err: unknown) {
   if (err instanceof z.ZodError) {
     return NextResponse.json({ ok: false, error: "bad_request", message: z.prettifyError(err) }, { status: 400 });
   }
-  if (isUniqueViolation(err)) {
-    return NextResponse.json({ ok: false, error: "conflict", message: "That value is already in use." }, { status: 409 });
+  // Known Prisma request errors map to client errors with a generic message (never Prisma's own text).
+  switch (prismaCode(err)) {
+    case "P2002": // unique constraint (duplicate email/code, second check-in of the day, concurrent create…)
+      return NextResponse.json({ ok: false, error: "conflict", message: "That value is already in use." }, { status: 409 });
+    case "P2025": // update/delete/findUniqueOrThrow on a record that does not exist
+      return NextResponse.json({ ok: false, error: "not_found", message: "Not found." }, { status: 404 });
+    case "P2003": // foreign key: the record is still referenced, or points at something missing
+      return NextResponse.json({ ok: false, error: "conflict", message: "This record is linked to other data." }, { status: 409 });
   }
   console.error(err);
   return NextResponse.json({ ok: false, error: "internal", message: "Something went wrong." }, { status: 500 });
 }
 
-function isUniqueViolation(err: unknown): boolean {
-  return typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002";
+function prismaCode(err: unknown): string | null {
+  return typeof err === "object" && err !== null && "code" in err && typeof (err as { code: unknown }).code === "string"
+    ? (err as { code: string }).code
+    : null;
 }
 
+/** Largest JSON body any route accepts (the CSV import is the biggest at up to 2 MB of text). */
+export const MAX_BODY_BYTES = 3 * 1024 * 1024;
+
 export async function readJson<S extends z.ZodType>(req: Request, schema: S): Promise<z.infer<S>> {
+  const declared = Number(req.headers.get("content-length") ?? 0);
+  if (declared > MAX_BODY_BYTES) throw new HttpError(413, "Request body is too large.", "payload_too_large");
+  let text: string;
+  try {
+    text = await req.text();
+  } catch {
+    throw new HttpError(400, "Request body could not be read", "bad_request");
+  }
+  // Chunked requests carry no content-length, so check what actually arrived too.
+  if (text.length > MAX_BODY_BYTES) throw new HttpError(413, "Request body is too large.", "payload_too_large");
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(text);
   } catch {
     throw new HttpError(400, "Request body must be JSON", "bad_request");
   }
   return schema.parse(body);
+}
+
+/** `?year=` → an integer year in a sane range, undefined when absent; anything else is a 400 (not an invalid Date → 500). */
+export function yearParam(value: string | null): number | undefined {
+  if (value === null || value === "") return undefined;
+  const year = Number(value);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new HttpError(400, "year must be between 2000 and 2100", "bad_request");
+  return year;
 }
 
 export function searchParams(req: Request): URLSearchParams {

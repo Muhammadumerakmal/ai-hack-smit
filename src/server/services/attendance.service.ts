@@ -172,14 +172,28 @@ export async function getAttendanceSummary(
   const departmentId = actor.role === "EMPLOYEE" ? undefined : await resolveDepartmentId(opts.department);
 
   const rows = await getDayRows({ start: opts.start, end: opts.end, departmentId, employeeId });
-  const counts = countRows(rows);
-
-  const byDept = new Map<string, DayRow[]>();
-  if (!employeeId) for (const r of rows) byDept.set(r.department, [...(byDept.get(r.department) ?? []), r]);
-
-  return {
-    period: { start: opts.start, end: opts.end },
+  return summarizeRows(rows, {
+    start: opts.start,
+    end: opts.end,
     scope: employeeId ? (actor.role === "EMPLOYEE" ? "own" : "employee") : (opts.department ?? "all departments"),
+    byDepartment: !employeeId,
+  });
+}
+
+/** Pure: the attendance summary of already-loaded day rows (shared by the AI tool, REST and dashboard). */
+export function summarizeRows(rows: DayRow[], o: { start: string; end: string; scope: string; byDepartment: boolean }) {
+  const counts = countRows(rows);
+  const byDept = new Map<string, DayRow[]>();
+  if (o.byDepartment) {
+    for (const r of rows) {
+      const list = byDept.get(r.department);
+      if (list) list.push(r);
+      else byDept.set(r.department, [r]);
+    }
+  }
+  return {
+    period: { start: o.start, end: o.end },
+    scope: o.scope,
     counts,
     ...rates(counts),
     byDepartment: [...byDept.entries()].map(([department, r]) => ({ department, ...rates(countRows(r)) })),
@@ -193,7 +207,11 @@ export async function getLateComers(
   assertRole(actor, "ADMIN", "HR");
   const departmentId = await resolveDepartmentId(opts.department);
   const rows = await getDayRows({ start: opts.start, end: opts.end, departmentId });
+  return lateComersFromRows(rows, opts);
+}
 
+/** Pure: employees ranked by late days in already-loaded day rows. */
+export function lateComersFromRows(rows: DayRow[], opts: { start: string; end: string; limit?: number }) {
   const tally = new Map<string, { name: string; code: string; department: string; lateCount: number; lateDates: string[] }>();
   for (const r of rows) {
     if (r.status !== "late") continue;
@@ -210,10 +228,10 @@ export async function getLateComers(
   };
 }
 
-/** Today's board numbers for dashboards. */
-export async function getTodaySnapshot(departmentId?: string) {
+/** Today's board numbers for dashboards. Pass already-loaded rows that cover today to skip the query. */
+export async function getTodaySnapshot(departmentId?: string, loaded?: DayRow[]) {
   const today = todayIso();
-  const rows = (await getDayRows({ start: today, end: today, departmentId })).filter((r) => r.date === today);
+  const rows = (loaded ?? (await getDayRows({ start: today, end: today, departmentId }))).filter((r) => r.date === today);
   const c = countRows(rows);
   return {
     date: today,
@@ -285,7 +303,10 @@ export async function checkOut(actor: Session, now: Date = new Date()) {
   const settings = await getSettings();
   const workedHours = (now.getTime() - rec.checkIn.getTime()) / 3_600_000;
   const status: AttendanceStatus = workedHours < settings.halfDayHours ? "HALF_DAY" : rec.status;
-  return recordOut(await db.attendance.update({ where: { id: rec.id }, data: { checkOut: now, status } }));
+  // Conditional: two check-out clicks at once must not both stamp a time.
+  const { count } = await db.attendance.updateMany({ where: { id: rec.id, checkOut: null }, data: { checkOut: now, status } });
+  if (!count) throw new HttpError(409, "You have already checked out today.", "conflict");
+  return recordOut(await db.attendance.findUniqueOrThrow({ where: { id: rec.id } }));
 }
 
 export async function getToday(actor: Session, now: Date = new Date()) {
@@ -492,6 +513,12 @@ export async function decideCorrection(actor: Session, id: string, input: { appr
 
   const settings = await getSettings();
   return db.$transaction(async (tx) => {
+    // Claim the request first (conditional on PENDING) so two concurrent decisions cannot both apply.
+    const claimed = await tx.attendanceCorrection.updateMany({
+      where: { id, status: "PENDING" },
+      data: { status: input.approve ? "APPROVED" : "REJECTED", decidedById: actor.userId, decisionComment: input.comment || null },
+    });
+    if (!claimed.count) throw new HttpError(409, "This request was already decided.", "conflict");
     let attendance = null;
     if (input.approve) {
       const key = { employeeId_date: { employeeId: c.employeeId, date: c.date } };
@@ -505,11 +532,7 @@ export async function decideCorrection(actor: Session, id: string, input: { appr
       attendance = await tx.attendance.upsert({ where: key, create: { employeeId: c.employeeId, date: c.date, ...data }, update: data });
       await audit(actor, "update", "attendance", attendance.id, { before, after: attendance }, tx);
     }
-    const updated = await tx.attendanceCorrection.update({
-      where: { id },
-      data: { status: input.approve ? "APPROVED" : "REJECTED", decidedById: actor.userId, decisionComment: input.comment || null },
-      include: { employee: { include: { department: true } } },
-    });
+    const updated = await tx.attendanceCorrection.findUniqueOrThrow({ where: { id }, include: { employee: { include: { department: true } } } });
     await audit(
       actor,
       input.approve ? "approve" : "reject",

@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { AnnouncementFeed, type Announcement } from "@/components/dashboard/AnnouncementFeed";
+import { cx, DIcon, Skeleton } from "@/components/dashboard/primitives";
 import { useMe } from "@/components/shell/AppShell";
-import { Button, Card, EmptyState, ErrorState, Field, Input, Loading, Notice, PageHeader, Textarea } from "@/components/ui";
-import { api, fmtDateTime, useApi } from "@/lib/client";
+import { Button, EmptyState, ErrorState, Field, Input, Notice, Textarea } from "@/components/ui";
+import { api, useApi } from "@/lib/client";
 
-interface Announcement {
-  id: string;
-  title: string;
-  body: string;
-  authorName: string;
-  createdAt: string;
-}
+const TITLE_MAX = 120;
+const BODY_MAX = 2000;
 
 export default function AnnouncementsPage() {
   const me = useMe();
@@ -20,6 +17,7 @@ export default function AnnouncementsPage() {
   const [form, setForm] = useState({ title: "", body: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
 
   async function post(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +26,7 @@ export default function AnnouncementsPage() {
     try {
       const r = await api<{ notified: number }>("/api/announcements", { body: form });
       setForm({ title: "", body: "" });
-      setMsg({ tone: "success", text: `Posted. ${r.notified} people were notified.` });
+      setMsg({ tone: "success", text: `Posted. ${r.notified} ${r.notified === 1 ? "person was" : "people were"} notified.` });
       reload();
     } catch (err) {
       setMsg({ tone: "error", text: (err as Error).message });
@@ -37,39 +35,88 @@ export default function AnnouncementsPage() {
     }
   }
 
+  const count = data?.items.length ?? 0;
+
   return (
     <>
-      <PageHeader title="Announcements" subtitle="Shown on every dashboard." />
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div className="space-y-3">
-          {error && <ErrorState message={error} onRetry={reload} />}
-          {loading && !data && <Loading />}
-          {data && !data.items.length && <EmptyState title="No announcements yet" hint={canPost ? "Post the first one with the form." : undefined} />}
-          {data?.items.map((a) => (
-            <Card key={a.id}>
-              <p className="font-medium">{a.title}</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">{a.body}</p>
-              <p className="mt-2 text-xs text-zinc-500">
-                {a.authorName} · {fmtDateTime(a.createdAt)}
-              </p>
-            </Card>
-          ))}
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.7rem]">Announcements</h1>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            Company news, shown on every dashboard{data ? ` · ${count} ${count === 1 ? "post" : "posts"}` : ""}.
+          </p>
         </div>
         {canPost && (
-          <Card title="Post an announcement">
-            <form onSubmit={post} className="space-y-3">
-              {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
-              <Field label="Title">
-                <Input required minLength={3} maxLength={120} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-              </Field>
-              <Field label="Message">
-                <Textarea required rows={5} maxLength={2000} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} />
-              </Field>
-              <Button type="submit" loading={busy} className="w-full">
-                Post to everyone
-              </Button>
-            </form>
-          </Card>
+          <Button className="lg:hidden" onClick={() => setComposerOpen((o) => !o)} aria-expanded={composerOpen}>
+            <DIcon name="megaphone" />
+            {composerOpen ? "Close" : "New announcement"}
+          </Button>
+        )}
+      </div>
+
+      <div className={cx("grid gap-6", canPost && "lg:grid-cols-[minmax(0,1fr)_22rem]")}>
+        <section aria-label="Announcements feed" className="order-2 min-w-0 space-y-3 lg:order-1">
+          {error && <ErrorState message={error} onRetry={reload} />}
+          {loading && !data && (
+            <div className="space-y-3" role="status" aria-label="Loading announcements">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex gap-3 rounded-2xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {data && !count && (
+            <EmptyState title="No announcements yet" hint={canPost ? "Share the first update with everyone using the form." : "Company news from Admin and HR will appear here."} />
+          )}
+          {data && count > 0 && <AnnouncementFeed items={data.items} />}
+        </section>
+
+        {canPost && (
+          <aside className={cx("order-1 lg:order-2 lg:block", composerOpen ? "block" : "hidden")}>
+            <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] lg:sticky lg:top-24 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+              <div className="mb-4 flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                  <DIcon name="megaphone" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-semibold">Post an announcement</h2>
+                  <p className="text-xs text-zinc-500">Everyone gets an in-app notification.</p>
+                </div>
+              </div>
+              <form onSubmit={post} className="space-y-4">
+                {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
+                <Field label="Title" hint={`${form.title.length}/${TITLE_MAX}`}>
+                  <Input
+                    required
+                    minLength={3}
+                    maxLength={TITLE_MAX}
+                    value={form.title}
+                    placeholder="e.g. Office closed on Friday"
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  />
+                </Field>
+                <Field label="Message" hint={`${form.body.length}/${BODY_MAX}`}>
+                  <Textarea
+                    required
+                    rows={6}
+                    maxLength={BODY_MAX}
+                    value={form.body}
+                    placeholder="Write the details people need to know."
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                  />
+                </Field>
+                <Button type="submit" loading={busy} className="w-full">
+                  Post to everyone
+                </Button>
+              </form>
+            </div>
+          </aside>
         )}
       </div>
     </>

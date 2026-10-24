@@ -30,13 +30,14 @@ Leave
 - Leave quotas: ${quotas}.
 - Leave counts working days only; weekends and public holidays inside a leave are not deducted.
 - A request that overlaps an existing leave, or is more than the remaining balance, is rejected.
-- Leave is applied for by the employee and approved or rejected by HR with a comment. Pending leave is not deducted until approved.
+- Leave is applied for by the employee and approved or rejected by HR with a comment. Pending leave is not deducted until approved. Nobody can approve their own request.
+- An employee can cancel their own leave while it is pending, or after approval as long as it has not started yet.
 - Public holidays this year: ${holidays.length ? holidays.map((x) => `${x.date} ${x.name}`).join("; ") : "none entered yet"}.
 Payroll
 - Gross salary = 1.5 × basic (basic + HRA 40% of basic + medical 10% of basic).
 - Per-day pay = gross ÷ working days in the month. Deductions: absent days + unpaid leave days + 0.5 × half days.
 - Joiners and leavers are paid pro rata for the days they were employed.
-- Income tax (illustrative) on annual gross (gross × 12): up to 600,000 = 0; 600,001–1,200,000 = 5% of the amount over 600,000; 1,200,001–2,400,000 = 30,000 + 15% over 1,200,000; 2,400,001–3,600,000 = 210,000 + 25% over 2,400,000; above 3,600,000 = 510,000 + 35% over 3,600,000. Monthly tax = annual tax ÷ 12.
+- Income tax (illustrative) is worked out on the month's earned pay (gross minus deductions) × 12, using these annual slabs: up to 600,000 = 0; 600,001–1,200,000 = 5% of the amount over 600,000; 1,200,001–2,400,000 = 30,000 + 15% over 1,200,000; 2,400,001–3,600,000 = 210,000 + 25% over 2,400,000; above 3,600,000 = 510,000 + 35% over 3,600,000. Monthly tax = annual tax ÷ 12. Net pay = gross − deductions − tax.
 - HR prepares the monthly payroll draft; only Admin can finalize it, and a finalized month is locked.
 Access
 - Admin sees all company data. HR sees HR data. Employees see only their own records and can never see another employee's data or salary.`;

@@ -67,10 +67,21 @@ async function nextEmployeeCode(tx: Prisma.TransactionClient): Promise<string> {
 
 type NewEmployee = z.infer<typeof employeeSchema>;
 
-async function createEmployeeTx(tx: Prisma.TransactionClient, actor: Session, input: NewEmployee) {
+interface TempCredentials {
+  tempPassword: string;
+  passwordHash: string;
+}
+
+/** bcrypt is deliberately slow (~70 ms); hash before opening a transaction so it stays short. */
+async function newTempCredentials(): Promise<TempCredentials> {
   const tempPassword = temporaryPassword();
+  return { tempPassword, passwordHash: await hashPassword(tempPassword) };
+}
+
+async function createEmployeeTx(tx: Prisma.TransactionClient, actor: Session, input: NewEmployee, creds?: TempCredentials) {
+  const { tempPassword, passwordHash } = creds ?? (await newTempCredentials());
   const user = await tx.user.create({
-    data: { email: input.email, name: input.fullName, role: "EMPLOYEE", passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+    data: { email: input.email, name: input.fullName, role: "EMPLOYEE", passwordHash, mustChangePassword: true },
   });
   const emp = await tx.employee.create({
     data: {
@@ -97,7 +108,8 @@ export async function createEmployee(actor: Session, input: NewEmployee) {
   assertRole(actor, "HR");
   await assertKnownRefs(input.departmentId, input.designationId);
   if (await db.user.findUnique({ where: { email: input.email } })) throw new HttpError(409, "A login with this email already exists.", "conflict");
-  return db.$transaction((tx) => createEmployeeTx(tx, actor, input));
+  const creds = await newTempCredentials();
+  return db.$transaction((tx) => createEmployeeTx(tx, actor, input, creds));
 }
 
 async function assertKnownRefs(departmentId?: string, designationId?: string | null) {
@@ -134,6 +146,10 @@ export async function updateEmployee(actor: Session, id: string, raw: unknown) {
     const after = await tx.employee.update({ where: { id }, data });
     if (before.userId && (data.email || data.fullName)) {
       await tx.user.update({ where: { id: before.userId }, data: { email: after.email, name: after.fullName } });
+    }
+    // An employee who has left (or is made inactive) can no longer sign in; sessions are rejected immediately.
+    if (before.userId && after.status !== before.status && (after.status === "EXITED" || after.status === "INACTIVE")) {
+      await tx.user.update({ where: { id: before.userId }, data: { isActive: false } });
     }
     const salaryChanged = Number(before.basicSalary) !== Number(after.basicSalary);
     await audit(actor, salaryChanged ? "update_salary" : "update", "employee", id, { before, after }, tx);
@@ -366,9 +382,12 @@ export async function importEmployeesCsv(actor: Session, csv: string, dryRun: bo
   const total = rows.length - 1;
   if (dryRun || errors.length) return { dryRun: true, total, valid: valid.length, errors, created: [] };
 
+  // Hash every temporary password first; the transaction then only does fast inserts.
+  const creds: TempCredentials[] = [];
+  for (let i = 0; i < valid.length; i += 8) creds.push(...(await Promise.all(valid.slice(i, i + 8).map(() => newTempCredentials()))));
   const created = await db.$transaction(async (tx) => {
     const out = [];
-    for (const e of valid) out.push(await createEmployeeTx(tx, actor, e));
+    for (const [i, e] of valid.entries()) out.push(await createEmployeeTx(tx, actor, e, creds[i]));
     await audit(actor, "import", "employee", null, { after: { count: out.length } }, tx);
     return out;
   }, { timeout: 60_000 });

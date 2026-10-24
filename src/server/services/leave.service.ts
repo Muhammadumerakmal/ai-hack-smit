@@ -1,4 +1,4 @@
-import type { LeaveStatus } from "@prisma/client";
+import type { LeaveStatus, LeaveType, Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -7,27 +7,71 @@ import { badRequest, forbidden, HttpError } from "@/lib/errors";
 import { assertRole, scopeEmployeeId, type Session } from "@/lib/session";
 import { getHolidaySet, getLeaveTypes, getSettings, resolveDepartmentId } from "./settings.service";
 
+type Client = PrismaClient | Prisma.TransactionClient;
+
+/**
+ * Working days of each leave type an employee has APPROVED / PENDING inside one calendar year.
+ *
+ * Year attribution: a leave that crosses New Year (e.g. 30 Dec – 2 Jan) is split by calendar year —
+ * each year's quota is charged only for the working days that fall in that year. Leaves fully inside
+ * the year use the `days` stored when they were applied for; a crossing leave's share is recomputed
+ * with the current weekend and holiday settings.
+ */
+export async function usedDaysInYear(client: Client, employeeId: string, year: number) {
+  const { start, end } = yearRange(year);
+  const rows = await client.leaveRequest.findMany({
+    where: { employeeId, status: { in: ["APPROVED", "PENDING"] }, startDate: { lte: toDate(end) }, endDate: { gte: toDate(start) } },
+    select: { leaveTypeId: true, status: true, days: true, startDate: true, endDate: true },
+  });
+  const crossing = rows.filter((r) => toIso(r.startDate) < start || toIso(r.endDate) > end);
+  const [settings, holidays] = crossing.length ? await Promise.all([getSettings(), getHolidaySet(start, end)]) : [null, null];
+
+  const used = new Map<string, { APPROVED: number; PENDING: number }>();
+  for (const r of rows) {
+    const s = toIso(r.startDate);
+    const e = toIso(r.endDate);
+    const days = s >= start && e <= end ? r.days : workingDays(maxIso(s, start), minIso(e, end), settings!.weekendDays, holidays!).length;
+    const u = used.get(r.leaveTypeId) ?? { APPROVED: 0, PENDING: 0 };
+    u[r.status as "APPROVED" | "PENDING"] += days;
+    used.set(r.leaveTypeId, u);
+  }
+  return used;
+}
+
+/** Group a request's working days by calendar year: { 2026: 2, 2027: 1 }. */
+function daysPerYear(dates: string[]): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const d of dates) m.set(Number(d.slice(0, 4)), (m.get(Number(d.slice(0, 4))) ?? 0) + 1);
+  return m;
+}
+
+/** Balance problems for taking `dates` of `type` (quota checked per calendar year). Empty = fine. */
+async function balanceProblems(client: Client, employeeId: string, type: LeaveType, dates: string[]) {
+  const problems: string[] = [];
+  const remainingAfter = new Map<number, number>();
+  if (type.yearlyQuota == null) return { problems, remainingAfter };
+  for (const [year, n] of daysPerYear(dates)) {
+    const used = (await usedDaysInYear(client, employeeId, year)).get(type.id)?.APPROVED ?? 0;
+    const remaining = type.yearlyQuota - used;
+    remainingAfter.set(year, remaining - n);
+    if (remaining < n) problems.push(`Not enough ${type.name} balance${dates.length > n ? ` for ${year}` : ""}: ${remaining} left, ${n} requested.`);
+  }
+  return { problems, remainingAfter };
+}
+
+/** Serialise leave writes per employee (apply / approve), so two requests cannot both pass the checks. */
+async function lockEmployee(tx: Prisma.TransactionClient, employeeId: string) {
+  await tx.$queryRaw`SELECT id FROM employees WHERE id = ${employeeId} FOR UPDATE`;
+}
+
 /** Leave balance for one employee and year: quota − approved days. Pending is shown but not deducted. */
 export async function getLeaveBalance(actor: Session, opts: { employeeId?: string; year?: number } = {}) {
   const employeeId = scopeEmployeeId(actor, opts.employeeId) ?? actor.employeeId;
   if (!employeeId) throw badRequest("Your login is not linked to an employee record, so there is no leave balance.");
   const year = opts.year ?? Number(todayIso().slice(0, 4));
-  const { start, end } = yearRange(year);
 
-  const [types, used] = await Promise.all([
-    getLeaveTypes(),
-    db.leaveRequest.groupBy({
-      by: ["leaveTypeId", "status"],
-      where: {
-        employeeId,
-        status: { in: ["APPROVED", "PENDING"] },
-        startDate: { gte: toDate(start), lte: toDate(end) },
-      },
-      _sum: { days: true },
-    }),
-  ]);
-  const sum = (typeId: string, status: "APPROVED" | "PENDING") =>
-    used.find((u) => u.leaveTypeId === typeId && u.status === status)?._sum.days ?? 0;
+  const [types, used] = await Promise.all([getLeaveTypes(), usedDaysInYear(db, employeeId, year)]);
+  const sum = (typeId: string, status: "APPROVED" | "PENDING") => used.get(typeId)?.[status] ?? 0;
 
   return {
     year,
@@ -137,32 +181,40 @@ export async function previewLeave(actor: Session, draft: LeaveDraft) {
   const skipped = holidays.size ? [...holidays].filter((h) => h >= draft.start && h <= draft.end) : [];
   if (skipped.length) notes.push(`Public holiday(s) skipped: ${skipped.join(", ")}.`);
 
-  const overlap = await db.leaveRequest.findFirst({
-    where: {
-      employeeId: actor.employeeId,
-      status: { in: ["PENDING", "APPROVED"] },
-      startDate: { lte: toDate(draft.end) },
-      endDate: { gte: toDate(draft.start) },
-    },
-  });
-  if (overlap) {
-    blocking.push(`You already have a ${overlap.status.toLowerCase()} leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.`);
-  }
+  const overlapMsg = await overlapProblem(db, actor.employeeId, draft.start, draft.end);
+  if (overlapMsg) blocking.push(overlapMsg);
 
   let remainingAfter: number | null = null;
-  if (type.yearlyQuota != null) {
-    const balance = await getLeaveBalance(actor, { year: Number(draft.start.slice(0, 4)) });
-    const remaining = balance.balances.find((b) => b.type === type.code)?.remaining ?? 0;
-    remainingAfter = remaining - days.length;
-    if (remainingAfter < 0) blocking.push(`Not enough ${type.name} balance: ${remaining} left, ${days.length} requested.`);
+  if (type.yearlyQuota != null && days.length) {
+    const balance = await balanceProblems(db, actor.employeeId, type, days);
+    blocking.push(...balance.problems);
+    remainingAfter = balance.remainingAfter.get(Number(days[0].slice(0, 4))) ?? null;
+    const years = [...daysPerYear(days).entries()];
+    if (years.length > 1) notes.push(`This leave crosses New Year: ${years.map(([y, n]) => `${n} day(s) count against ${y}`).join(", ")}.`);
   }
 
   return { workingDays: days.length, dates: days, remainingAfter, blocking, notes };
 }
 
+/** "You already have …" when an active (pending/approved) leave touches [start, end]; dates are inclusive. */
+async function overlapProblem(client: Client, employeeId: string, start: string, end: string, excludeId?: string) {
+  const overlap = await client.leaveRequest.findFirst({
+    where: {
+      ...(excludeId && { id: { not: excludeId } }),
+      employeeId,
+      status: { in: ["PENDING", "APPROVED"] },
+      startDate: { lte: toDate(end) },
+      endDate: { gte: toDate(start) },
+    },
+  });
+  return overlap ? `You already have a ${overlap.status.toLowerCase()} leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.` : null;
+}
+
 /**
  * Employee applies for leave (the "confirm" step of smart leave and the normal form).
  * Same rules as previewLeave; any blocking problem is a 422 (Section 3, M5). Saved as PENDING for HR.
+ * Overlap and balance are re-checked under a per-employee row lock, so a double-click or two tabs
+ * cannot create two overlapping requests.
  */
 export async function applyForLeave(actor: Session, draft: LeaveDraft) {
   const preview = await previewLeave(actor, draft);
@@ -170,6 +222,10 @@ export async function applyForLeave(actor: Session, draft: LeaveDraft) {
 
   const type = (await getLeaveTypes()).find((t) => t.code === draft.type)!;
   const request = await db.$transaction(async (tx) => {
+    await lockEmployee(tx, actor.employeeId!);
+    const again = [await overlapProblem(tx, actor.employeeId!, draft.start, draft.end), ...(await balanceProblems(tx, actor.employeeId!, type, preview.dates)).problems];
+    const problems = again.filter((p): p is string => !!p);
+    if (problems.length) throw new HttpError(422, problems.join(" "), "unprocessable");
     const r = await tx.leaveRequest.create({
       data: {
         employeeId: actor.employeeId!,
@@ -243,7 +299,10 @@ export async function cancelLeave(actor: Session, id: string, now: Date = new Da
     throw new HttpError(409, "Only pending leave, or approved leave that has not started, can be cancelled.", "conflict");
   }
   return db.$transaction(async (tx) => {
-    const after = await tx.leaveRequest.update({ where: { id }, data: { status: "CANCELLED" } });
+    // Conditional on the status we checked, so a concurrent approve/cancel cannot be overwritten silently.
+    const { count } = await tx.leaveRequest.updateMany({ where: { id, status: l.status }, data: { status: "CANCELLED" } });
+    if (!count) throw new HttpError(409, "This request changed in the meantime. Refresh and try again.", "conflict");
+    const after = { status: "CANCELLED" as const };
     await audit(actor, "cancel", "leave_request", id, { before: { status: l.status }, after: { status: after.status } }, tx);
     if (l.status === "APPROVED" && l.decidedById) {
       await notify([l.decidedById], { title: "Approved leave cancelled", body: `${actor.name ?? "An employee"} cancelled ${toIso(l.startDate)} to ${toIso(l.endDate)}.`, link: "/leave" }, tx);
@@ -264,25 +323,30 @@ export async function decideLeave(actor: Session, id: string, input: { decision:
   if (l.status !== "PENDING") throw new HttpError(409, `This request is already ${l.status.toLowerCase()}.`, "conflict");
   if (l.employeeId === actor.employeeId) throw forbidden("You cannot approve your own leave.");
 
-  if (input.decision === "APPROVED") {
-    const overlap = await db.leaveRequest.findFirst({
-      where: { id: { not: id }, employeeId: l.employeeId, status: "APPROVED", startDate: { lte: l.endDate }, endDate: { gte: l.startDate } },
-    });
-    if (overlap) throw new HttpError(422, `Overlaps approved leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.`, "unprocessable");
-    if (l.leaveType.yearlyQuota != null) {
-      const balance = await getLeaveBalance(actor, { employeeId: l.employeeId, year: l.startDate.getUTCFullYear() });
-      const remaining = balance.balances.find((b) => b.type === l.leaveType.code)?.remaining ?? 0;
-      if (remaining < l.days) {
-        throw new HttpError(422, `Not enough ${l.leaveType.name} balance: ${remaining} left, ${l.days} requested.`, "unprocessable");
-      }
-    }
-  }
+  const [settings, holidays] = await Promise.all([getSettings(), getHolidaySet(toIso(l.startDate), toIso(l.endDate))]);
+  const dates = workingDays(toIso(l.startDate), toIso(l.endDate), settings.weekendDays, holidays);
 
   return db.$transaction(async (tx) => {
-    const after = await tx.leaveRequest.update({
-      where: { id },
+    // Re-check everything under a per-employee lock: two HR users approving two requests at once
+    // (which together exceed the balance), or the same request twice, must not both succeed.
+    await lockEmployee(tx, l.employeeId);
+    const current = await tx.leaveRequest.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status !== "PENDING") throw new HttpError(409, `This request is already ${current?.status.toLowerCase() ?? "gone"}.`, "conflict");
+    if (input.decision === "APPROVED") {
+      const overlap = await tx.leaveRequest.findFirst({
+        where: { id: { not: id }, employeeId: l.employeeId, status: "APPROVED", startDate: { lte: l.endDate }, endDate: { gte: l.startDate } },
+      });
+      if (overlap) throw new HttpError(422, `Overlaps approved leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.`, "unprocessable");
+      const { problems } = await balanceProblems(tx, l.employeeId, l.leaveType, dates);
+      if (problems.length) throw new HttpError(422, problems.join(" "), "unprocessable");
+    }
+    // Conditional write: if the employee cancelled meanwhile, the request is no longer PENDING and nothing changes.
+    const changed = await tx.leaveRequest.updateMany({
+      where: { id, status: "PENDING" },
       data: { status: input.decision, decidedById: actor.userId, decisionComment: input.comment || null },
     });
+    if (changed.count === 0) throw new HttpError(409, "This request was already decided or cancelled.", "conflict");
+    const after = await tx.leaveRequest.findUniqueOrThrow({ where: { id } });
     await audit(
       actor,
       input.decision === "APPROVED" ? "approve" : "reject",

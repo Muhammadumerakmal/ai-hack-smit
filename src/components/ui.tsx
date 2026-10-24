@@ -9,9 +9,9 @@ const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).jo
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-7 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -21,10 +21,10 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Card({ title, actions, children, className }: { title?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950", className)}>
+    <section className={cx("rounded-2xl p-5 border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none", className)}>
       {(title || actions) && (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          {title && <h2 className="text-sm font-semibold">{title}</h2>}
+        <div className="mb-4 flex items-center justify-between gap-2">
+          {title && <h2 className="text-sm font-semibold tracking-tight">{title}</h2>}
           {actions}
         </div>
       )}
@@ -36,10 +36,10 @@ export function Card({ title, actions, children, className }: { title?: string; 
 export function Stat({ label, value, hint, tone = "default" }: { label: string; value: ReactNode; hint?: string; tone?: "default" | "good" | "warn" | "bad" }) {
   const color = { default: "text-zinc-900 dark:text-zinc-50", good: "text-teal-600 dark:text-teal-400", warn: "text-amber-600 dark:text-amber-400", bad: "text-red-600 dark:text-red-400" }[tone];
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className={cx("mt-1 text-2xl font-semibold tabular-nums", color)}>{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>}
+    <div className="rounded-2xl p-4 border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none">
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className={cx("mt-2 text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums", color)}>{value}</p>
+      {hint && <p className="mt-2 text-xs text-zinc-500">{hint}</p>}
     </div>
   );
 }
@@ -48,8 +48,8 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "
 
 export function Button({ variant = "primary", size = "md", loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
-    primary: "bg-teal-600 text-white hover:bg-teal-700",
-    secondary: "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
+    primary: "bg-teal-600 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-700 active:bg-teal-800",
+    secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
   }[variant];
@@ -58,8 +58,8 @@ export function Button({ variant = "primary", size = "md", loading, className, c
       {...rest}
       disabled={disabled || loading}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
-        size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-zinc-950",
+        size === "sm" ? "h-7 px-2.5 text-xs" : "h-10 px-4 text-sm",
         styles,
         className,
       )}
@@ -71,12 +71,12 @@ export function Button({ variant = "primary", size = "md", loading, className, c
 }
 
 const fieldCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500";
 
 export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: ReactNode; className?: string }) {
   return (
-    <label className={cx("block space-y-1", className)}>
-      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+    <label className={cx("block space-y-1.5", className)}>
+      <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
       {children}
       {error ? <span className="block text-xs text-red-600">{error}</span> : hint ? <span className="block text-xs text-zinc-500">{hint}</span> : null}
     </label>
@@ -121,9 +121,9 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
     <div className="-mx-4 overflow-x-auto sm:mx-0">
       <table className="w-full min-w-[560px] text-left text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800">
+          <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800">
             {head.map((h, i) => (
-              <th key={i} className="px-3 py-2 font-medium first:pl-4 sm:first:pl-3">
+              <th key={i} className="px-3 py-2.5 font-medium first:pl-4 sm:first:pl-3">
                 {h}
               </th>
             ))}
@@ -137,7 +137,7 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
 }
 
 export const Td = ({ children, className }: { children?: ReactNode; className?: string }) => (
-  <td className={cx("px-3 py-2.5 align-middle first:pl-4 sm:first:pl-3", className)}>{children}</td>
+  <td className={cx("px-3 py-3 align-middle first:pl-4 sm:first:pl-3", className)}>{children}</td>
 );
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
@@ -151,7 +151,7 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
 
 export function EmptyState({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-10 text-center dark:border-zinc-700">
+    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-12 text-center dark:border-zinc-700 dark:bg-zinc-900/30">
       <p className="text-sm font-medium">{title}</p>
       {hint && <p className="max-w-sm text-xs text-zinc-500">{hint}</p>}
       {action}
@@ -201,7 +201,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
     <dialog
       ref={ref}
       onClose={onClose}
-      className="w-[min(560px,calc(100vw-2rem))] rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-black/40 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/50 backdrop:backdrop-blur-[2px] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
     >
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{title}</h2>

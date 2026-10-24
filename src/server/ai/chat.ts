@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { db } from "@/lib/db";
 import type { Session } from "@/lib/session";
 import type { AiRun } from "./guard";
 import { getLlm, type LlmMessage } from "./llm";
@@ -13,14 +14,18 @@ export const chatRequestSchema = z.object({
     .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(2000) }))
     .min(1)
     .max(20)
-    .refine((m) => m[m.length - 1].role === "user", "The last message must be from the user"),
+    // zod v4 runs refinements even when .min() already failed, so guard the empty array.
+    .refine((m) => m.length > 0 && m[m.length - 1].role === "user", "The last message must be from the user"),
 });
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 
 export async function buildChatSystemPrompt(actor: Session): Promise<string> {
+  // Real department names, so the model filters by what exists instead of guessing ("HR", "Finance"…).
+  const departments = (await db.department.findMany({ select: { name: true }, orderBy: { name: "asc" } })).map((d) => d.name);
   return `You are the HCM Lite assistant for HR questions.
 ${dateContext()}
 User: ${actor.name ?? "unknown"} (role ${actor.role}). ${roleScopeText(actor)}
+Departments: ${departments.length ? departments.join(", ") : "none created yet"}. Use these exact names in tool arguments; for "each department" questions, omit the department filter and read the per-department breakdown.
 
 Rules:
 1. For any number or fact about employees, attendance, leave or payroll, call a tool. Never guess, estimate or invent data. Quote numbers exactly as the tool returns them.
@@ -28,7 +33,7 @@ Rules:
 3. If the user asks about another employee's salary, pay, attendance or leave and they are an EMPLOYEE, politely refuse without calling any tool.
 4. For questions about rules (late time, quotas, payroll formula, tax), answer only from the COMPANY POLICY below. If the policy does not cover it, say you don't know and suggest asking HR.
 5. You cannot create, change, approve or delete anything. If asked, explain which screen to use (e.g. the Leave page to apply for leave).
-6. Reply in the user's language: English, Urdu or Roman Urdu. Keep answers short: one to four sentences or a short list.
+6. Reply in the language of the user's latest message (English unless they wrote in Urdu or Roman Urdu). Keep answers short: one to four sentences or a short list.
 
 ${await buildPolicyText()}`;
 }
@@ -49,7 +54,8 @@ export async function runChat(actor: Session, req: ChatRequest, signal: AbortSig
     usage.completion += res.usage?.completion ?? 0;
 
     if (res.toolCalls.length === 0) {
-      const answer = res.content?.trim() || "Sorry, I could not find an answer to that.";
+      let answer = res.content?.trim() || "Sorry, I could not find an answer to that.";
+      if (res.finishReason === "length") answer += "\n\n(This answer was cut short. Please ask a narrower question.)";
       return { data: { answer }, output: answer, toolCalls: toolLog, model, usage };
     }
 

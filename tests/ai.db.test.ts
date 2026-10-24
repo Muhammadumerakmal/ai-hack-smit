@@ -238,7 +238,8 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       const start = nextWeekday(1, addDays(todayIso(), 60));
       await expect(applyForLeave(sara, { type: "sick", start, end: addDays(start, 18), reason: "long" })).rejects.toMatchObject({
         status: 422,
-        message: expect.stringMatching(/Not enough Sick balance: 7 left/),
+        // The range may cross a year boundary, where the service names the year ("… for 2027: …").
+        message: expect.stringMatching(/Not enough Sick balance( for \d{4})?: \d+ left/),
       });
     });
 

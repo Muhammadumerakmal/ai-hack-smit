@@ -60,11 +60,44 @@ export const loginSchema = z.object({ email: z.string().trim().min(3).max(200), 
 
 let dummyHash: Promise<string> | null = null;
 
-export async function login(email: string, password: string) {
-  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+// Brute-force brake: after MAX_FAILED_LOGINS wrong passwords for one email within the window, further attempts get 429
+// until the window passes. In-memory, so it is per server instance (enough to stop a scripted guesser on one instance;
+// a shared store would be needed to enforce it across many serverless instances).
+export const MAX_FAILED_LOGINS = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const failedLogins = new Map<string, { count: number; first: number }>();
+
+function loginThrottle(key: string, now: number) {
+  const f = failedLogins.get(key);
+  if (f && now - f.first > LOGIN_WINDOW_MS) failedLogins.delete(key);
+  const current = failedLogins.get(key);
+  if (current && current.count >= MAX_FAILED_LOGINS) {
+    throw new HttpError(429, "Too many failed sign-in attempts. Please wait 15 minutes and try again.", "rate_limited");
+  }
+}
+
+function recordFailedLogin(key: string, now: number) {
+  const f = failedLogins.get(key);
+  failedLogins.set(key, f ? { count: f.count + 1, first: f.first } : { count: 1, first: now });
+  if (failedLogins.size > 10_000) failedLogins.delete(failedLogins.keys().next().value!); // bound memory
+}
+
+/** Test hook: forget all failed attempts. */
+export function resetLoginThrottle() {
+  failedLogins.clear();
+}
+
+export async function login(email: string, password: string, now = Date.now()) {
+  const key = email.trim().toLowerCase();
+  loginThrottle(key, now);
+  const user = await db.user.findUnique({ where: { email: key } });
   // Same message for unknown email and wrong password; a hash compare runs either way so timing doesn't leak which.
   const ok = await verifyPassword(password, user?.passwordHash ?? (await (dummyHash ??= hashPassword("not-a-real-password"))));
-  if (!user || !ok) throw unauthorized("Email or password is incorrect.");
+  if (!user || !ok) {
+    recordFailedLogin(key, now);
+    throw unauthorized("Email or password is incorrect.");
+  }
+  failedLogins.delete(key);
   if (!user.isActive) throw forbidden("This account has been deactivated. Contact your administrator.");
   return { token: await signToken(user.id), mustChangePassword: user.mustChangePassword };
 }

@@ -106,15 +106,25 @@ export async function computeMonth(month: string) {
     }),
   ]);
 
+  // Group once (rows can be employees × working days; filtering per employee would be quadratic).
+  const rowsByEmp = new Map<string, typeof rows>();
+  for (const r of rows) {
+    const list = rowsByEmp.get(r.employeeId);
+    if (list) list.push(r);
+    else rowsByEmp.set(r.employeeId, [r]);
+  }
+  const unpaidByEmp = new Map<string, typeof unpaidLeaves>();
+  for (const l of unpaidLeaves) unpaidByEmp.set(l.employeeId, [...(unpaidByEmp.get(l.employeeId) ?? []), l]);
+
   const slips = employees.map((e) => {
     const join = toIso(e.joinDate);
     const exit = e.exitDate ? toIso(e.exitDate) : null;
     const employed = (d: string) => d >= join && (!exit || d <= exit);
-    const mine = rows.filter((r) => r.employeeId === e.id);
+    const mine = rowsByEmp.get(e.id) ?? [];
 
     // Unpaid leave over the whole month (approved, so future days count too); only days while employed.
     const unpaid = new Set<string>();
-    for (const l of unpaidLeaves.filter((x) => x.employeeId === e.id)) {
+    for (const l of unpaidByEmp.get(e.id) ?? []) {
       const from = maxIso(start, toIso(l.startDate));
       const to = minIso(end, toIso(l.endDate));
       for (const d of monthDays) if (d >= from && d <= to && employed(d)) unpaid.add(d);
@@ -144,7 +154,13 @@ export async function createOrRecomputeDraft(actor: Session, month: string) {
   const computed = await computeMonth(month);
   return db.$transaction(async (tx) => {
     const run = existing ?? (await tx.payrollRun.create({ data: { month, createdById: actor.userId } }));
-    if (existing) await tx.payslip.deleteMany({ where: { runId: run.id } });
+    if (existing) {
+      // Re-check the lock inside the transaction: an Admin may have finalized the month since we read it.
+      // The conditional UPDATE also row-locks the run, so a concurrent finalize waits for us (or we see FINALIZED).
+      const { count } = await tx.payrollRun.updateMany({ where: { id: run.id, status: "DRAFT" }, data: { createdById: actor.userId } });
+      if (!count) throw new HttpError(409, `Payroll for ${month} is finalized and locked.`, "locked");
+      await tx.payslip.deleteMany({ where: { runId: run.id } });
+    }
     await tx.payslip.createMany({
       data: computed.slips.map((s) => ({
         runId: run.id,

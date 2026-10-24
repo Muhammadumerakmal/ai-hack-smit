@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { addDays, maxIso, minIso, monthRange, toDate, toIso, todayIso, weekdayOf, workingDays } from "@/lib/dates";
 import { badRequest, forbidden } from "@/lib/errors";
 import { assertRole, type Session } from "@/lib/session";
-import { countRows, getAttendanceSummary, getDayRows, getLateComers, getTodaySnapshot, rates } from "./attendance.service";
+import { countRows, getAttendanceSummary, getDayRows, getTodaySnapshot, lateComersFromRows, rates, summarizeRows, type DayRow } from "./attendance.service";
 import { latestAudit, listAnnouncements } from "./comms.service";
 import { getHeadcount } from "./employee.service";
 import { getLeaveBalance, getLeaveSummary } from "./leave.service";
@@ -27,12 +27,23 @@ const deptWhere = (departmentId?: string): Prisma.EmployeeWhereInput => (departm
 export async function getDashboardKpis(actor: Session, f: DashboardFilters) {
   assertRole(actor, "ADMIN", "HR");
   const departmentId = await resolveDepartmentId(f.department);
+  return kpisFromRows(actor, f, departmentId, await getDayRows({ start: f.start, end: f.end, departmentId }));
+}
 
-  const [headcount, today, attendance, late, leave, pendingCorrections] = await Promise.all([
+/**
+ * KPIs from already-loaded day rows. The attendance summary and late-comers are computed with the same
+ * pure helpers the AI tools (get_attendance_summary, get_late_comers) use, so the numbers are identical,
+ * but the expensive employee × day scan runs once per dashboard load instead of three or four times.
+ */
+async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: string | undefined, rows: DayRow[]) {
+  const today = todayIso();
+  const attendance = summarizeRows(rows, { start: f.start, end: f.end, scope: f.department ?? "all departments", byDepartment: true });
+  const late = lateComersFromRows(rows, { ...f, limit: 5 });
+
+  const [headcount, todaySnap, leave, pendingCorrections] = await Promise.all([
     getHeadcount(actor, { department: f.department, asOf: f.end }),
-    getTodaySnapshot(departmentId),
-    getAttendanceSummary(actor, f),
-    getLateComers(actor, { ...f, limit: 5 }),
+    // The period's rows already contain today when today is inside the period.
+    f.start <= today && today <= f.end ? getTodaySnapshot(departmentId, rows) : getTodaySnapshot(departmentId),
     getLeaveSummary(actor, f),
     db.attendanceCorrection.count({ where: { status: "PENDING", ...(departmentId && { employee: { departmentId } }) } }),
   ]);
@@ -40,7 +51,7 @@ export async function getDashboardKpis(actor: Session, f: DashboardFilters) {
   const kpis = {
     filters: { period: `${f.start} to ${f.end}`, department: f.department ?? "all departments" },
     headcount: { total: headcount.total, active: headcount.active, probation: headcount.probation, byDepartment: headcount.byDepartment },
-    today,
+    today: todaySnap,
     attendance: {
       attendanceRatePct: attendance.attendanceRatePct,
       latePct: attendance.latePct,
@@ -103,10 +114,14 @@ export async function getAttrition(f: { start: string; end: string; departmentId
 }
 
 /** Daily attendance rate over the period (one point per working day up to today). */
-export async function getAttendanceTrend(f: { start: string; end: string; departmentId?: string }) {
-  const rows = await getDayRows({ start: f.start, end: f.end, departmentId: f.departmentId });
-  const byDate = new Map<string, typeof rows>();
-  for (const r of rows) byDate.set(r.date, [...(byDate.get(r.date) ?? []), r]);
+export async function getAttendanceTrend(f: { start: string; end: string; departmentId?: string }, loaded?: DayRow[]) {
+  const rows = loaded ?? (await getDayRows({ start: f.start, end: f.end, departmentId: f.departmentId }));
+  const byDate = new Map<string, DayRow[]>();
+  for (const r of rows) {
+    const list = byDate.get(r.date);
+    if (list) list.push(r);
+    else byDate.set(r.date, [r]);
+  }
   return [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, r]) => {
@@ -222,10 +237,12 @@ export function parseDashboardFilters(q: URLSearchParams): DashboardFilters {
 export async function getDashboard(actor: Session, f: DashboardFilters) {
   if (actor.role === "EMPLOYEE") return { kind: "personal" as const, ...(await getEmployeeDashboard(actor)) };
 
+  assertRole(actor, "ADMIN", "HR");
   const departmentId = await resolveDepartmentId(f.department);
+  const rows = await getDayRows({ start: f.start, end: f.end, departmentId });
   const [kpis, trend, leaveUtilization, departments, announcements] = await Promise.all([
-    getDashboardKpis(actor, f),
-    getAttendanceTrend({ ...f, departmentId }),
+    kpisFromRows(actor, f, departmentId, rows),
+    getAttendanceTrend({ ...f, departmentId }, rows),
     getLeaveUtilization({ ...f, departmentId }),
     db.department.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
     listAnnouncements(5),
