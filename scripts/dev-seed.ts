@@ -6,6 +6,10 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { addDays, currentMonth, monthRange, todayIso, toDate, workingDays } from "../src/lib/dates";
+import { hashPassword } from "../src/lib/password";
+
+/** Every demo login uses this password (local demo data only). */
+export const DEMO_PASSWORD = "Demo1234";
 
 export function assertLocalDatabase() {
   const url = process.env.DATABASE_URL ?? "";
@@ -48,6 +52,7 @@ export async function seedDemo(db: PrismaClient) {
 
   const today = todayIso();
   const year = today.slice(0, 4);
+  const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   await db.companySettings.create({ data: { id: 1, companyName: "Demo Co", officeLat: 24.8607, officeLng: 67.0011 } });
   const [eng, sales, hrDept] = await Promise.all(
@@ -68,7 +73,7 @@ export async function seedDemo(db: PrismaClient) {
   );
   await db.holiday.create({ data: { date: toDate(`${year}-12-25`), name: "Quaid-e-Azam Day" } });
 
-  await db.user.create({ data: { email: "admin@demo.test", name: "Demo Admin", passwordHash: "dev-seed", role: "ADMIN" } });
+  await db.user.create({ data: { email: "admin@demo.test", name: "Demo Admin", passwordHash, role: "ADMIN" } });
 
   const people = [
     { code: "E001", name: "Hina Khan", email: "hr@demo.test", role: "HR" as const, dept: hrDept, des: hrOfficer, basic: 120_000 },
@@ -79,7 +84,7 @@ export async function seedDemo(db: PrismaClient) {
   ];
   const emp: Record<string, string> = {};
   for (const p of people) {
-    const user = await db.user.create({ data: { email: p.email, passwordHash: "dev-seed", role: p.role } });
+    const user = await db.user.create({ data: { email: p.email, passwordHash, role: p.role } });
     const e = await db.employee.create({
       data: {
         code: p.code,
@@ -163,7 +168,7 @@ if (process.argv[1]?.replace(/\\/g, "/").endsWith("scripts/dev-seed.ts")) {
     if (!process.argv.includes("--yes")) throw new Error("This wipes the local database. Re-run with --yes.");
     const r = await seedDemo(db);
     console.log(`Seeded Demo Co: 5 employees, ${r.workingDaysSoFar.length} working days of attendance, payroll ${r.payrollMonth}.`);
-    console.log("Sign in at http://localhost:3000/assistant (dev links), e.g. hr@demo.test or sara@demo.test.");
+    console.log(`Sign in at http://localhost:3000 as admin@demo.test, hr@demo.test or sara@demo.test (password ${DEMO_PASSWORD}).`);
   })()
     .catch((e) => {
       console.error(e.message ?? e);
