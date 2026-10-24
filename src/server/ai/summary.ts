@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { Agent, defineOutputGuardrail, ModelBehaviorError, OutputGuardrailTripwireTriggered, run } from "@openai/agents";
 import { isIsoDate, todayIso } from "@/lib/dates";
 import { assertRole, type Session } from "@/lib/session";
 import { getDashboardKpis } from "../services/analytics.service";
+import { agentModel, MAX_COMPLETION_TOKENS, modelLabel, usageOf } from "./agents";
 import type { AiRun } from "./guard";
-import { completeJson } from "./json-output";
 
 export const summaryRequestSchema = z.object({
   start: z.string().refine(isIsoDate, "start must be YYYY-MM-DD").optional(),
@@ -11,7 +12,8 @@ export const summaryRequestSchema = z.object({
   department: z.string().max(80).optional(),
 });
 
-const bulletsSchema = z.object({ bullets: z.array(z.string().trim().min(5).max(220)).min(3).max(5) });
+/** Structured output: the SDK sends this as the response JSON schema and parses the reply with it. */
+const bulletsSchema = z.object({ bullets: z.array(z.string()).min(3).max(5) });
 
 /** Every number that appears in the KPI JSON (values, numbers inside strings, array lengths). */
 export function allowedNumbers(value: unknown, out = new Set<number>()): Set<number> {
@@ -54,37 +56,39 @@ export async function runSummary(
   const kpis = await getDashboardKpis(actor, f);
   const allowed = allowedNumbers(kpis);
 
-  const attempt = await completeJson(
-    [
-      {
-        role: "system",
-        content: `You write the insight box of an HR dashboard. Reply as JSON: {"bullets": ["...", "..."]} with 3 to 5 bullets.
+  const model = agentModel();
+  const agent = new Agent({
+    name: "dashboard-summary",
+    instructions: `You write the insight box of an HR dashboard: 3 to 5 bullets.
 Use ONLY the numbers in the KPI JSON, copied exactly. Do not add, subtract, average or round them yourself, and do not invent trends or causes.
 Each bullet: one short sentence that points out something useful (highest or lowest department, who is late most, pending approvals, leave use). If there is little data, say so plainly.`,
-      },
-      { role: "user", content: `KPI JSON:\n${JSON.stringify(kpis)}` },
+    model,
+    outputType: bulletsSchema,
+    modelSettings: { maxTokens: MAX_COMPLETION_TOKENS },
+    outputGuardrails: [
+      defineOutputGuardrail<typeof bulletsSchema>({
+        name: "grounded_numbers",
+        execute: async ({ agentOutput }) => {
+          const ungrounded = [...new Set(ungroundedNumbers(agentOutput.bullets, allowed))];
+          return { tripwireTriggered: ungrounded.length > 0, outputInfo: { ungrounded } };
+        },
+      }),
     ],
-    bulletsSchema,
-    signal,
-    (v) => {
-      const bad = ungroundedNumbers(v.bullets, allowed);
-      return bad.length ? [`these numbers are not in the KPI JSON: ${[...new Set(bad)].join(", ")}`] : [];
-    },
-  );
+  });
 
-  if (!attempt.ok) {
-    return {
-      data: { bullets: [], kpis },
-      output: `invalid: ${attempt.errors.join("; ")}`,
-      status: "invalid_output",
-      model: attempt.model,
-      usage: attempt.usage,
-    };
+  try {
+    const result = await run(agent, `KPI JSON:\n${JSON.stringify(kpis)}`, { signal });
+    const bullets = result.finalOutput!.bullets;
+    return { data: { bullets, kpis }, output: bullets.join("\n"), model: modelLabel(model), usage: usageOf(result.state) };
+  } catch (err) {
+    // A reply that is not the schema, or that uses numbers missing from the KPI JSON: the dashboard shows the KPIs without bullets.
+    if (err instanceof OutputGuardrailTripwireTriggered || err instanceof ModelBehaviorError) {
+      const why =
+        err instanceof OutputGuardrailTripwireTriggered
+          ? `these numbers are not in the KPI JSON: ${(err.result.output.outputInfo as { ungrounded: number[] }).ungrounded.join(", ")}`
+          : err.message;
+      return { data: { bullets: [], kpis }, output: `invalid: ${why}`, status: "invalid_output", model: modelLabel(model), usage: usageOf(err.state) };
+    }
+    throw err;
   }
-  return {
-    data: { bullets: attempt.value.bullets, kpis },
-    output: attempt.value.bullets.join("\n"),
-    model: attempt.model,
-    usage: attempt.usage,
-  };
 }
