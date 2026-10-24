@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hcm
+      POSTGRES_PASSWORD: hcm
+      POSTGRES_DB: hcm
+    ports:
+      - "5432:5432"
+    volumes:
+      - hcm-db:/var/lib/postgresql/data
+
+volumes:
+  hcm-db:

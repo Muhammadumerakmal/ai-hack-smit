@@ -1,0 +1,310 @@
+// HCM Lite data model.
+// M8 (AI assistant) only reads these tables through the services in src/server/services
+// and writes only to ai_logs. The other modules own the writes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  HR
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PROBATION
+  INACTIVE
+  EXITED
+}
+
+/// Stored statuses. "absent" and "on_leave" are derived (no record), see attendance.service.ts.
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  HALF_DAY
+  MISSING_CHECKOUT
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+}
+
+/// Single row (id = 1). Applied to new records only.
+model CompanySettings {
+  id           Int      @id @default(1)
+  companyName  String
+  officeStart  String   @default("09:00")
+  graceMinutes Int      @default(15)
+  halfDayHours Float    @default(5)
+  /// 0 = Sunday … 6 = Saturday
+  weekendDays  Int[]    @default([0, 6])
+  officeLat    Float?
+  officeLng    Float?
+  radiusMeters Int      @default(150)
+  updatedAt    DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model User {
+  id                 String   @id @default(cuid())
+  email              String   @unique
+  name               String   @default("")
+  passwordHash       String
+  role               Role
+  isActive           Boolean  @default(true)
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  employee      Employee?
+  aiLogs        AiLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  employees Employee[]
+
+  @@map("departments")
+}
+
+model Designation {
+  id        String     @id @default(cuid())
+  title     String     @unique
+  employees Employee[]
+
+  @@map("designations")
+}
+
+model Employee {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  fullName      String
+  email         String         @unique
+  phone         String?
+  address       String?
+  gender        String?
+  departmentId  String
+  designationId String?
+  joinDate      DateTime       @db.Date
+  exitDate      DateTime?      @db.Date
+  status        EmployeeStatus @default(PROBATION)
+  basicSalary   Decimal        @db.Decimal(12, 2)
+  userId        String?        @unique
+
+  department    Department             @relation(fields: [departmentId], references: [id])
+  designation   Designation?           @relation(fields: [designationId], references: [id])
+  user          User?                  @relation(fields: [userId], references: [id])
+  attendance    Attendance[]
+  corrections   AttendanceCorrection[]
+  leaveRequests LeaveRequest[]
+  payslips      Payslip[]
+
+  @@index([departmentId])
+  @@map("employees")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Employee asks HR to fix a day's attendance; on approval the attendance row is created or replaced.
+model AttendanceCorrection {
+  id                String        @id @default(cuid())
+  employeeId        String
+  date              DateTime      @db.Date
+  requestedCheckIn  DateTime
+  requestedCheckOut DateTime?
+  reason            String
+  status            RequestStatus @default(PENDING)
+  decidedById       String?
+  decisionComment   String?
+  createdAt         DateTime      @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([status])
+  @@map("attendance_corrections")
+}
+
+model LeaveType {
+  id          String         @id @default(cuid())
+  /// annual | sick | casual | unpaid (or any code Admin adds)
+  code        String         @unique
+  name        String
+  /// null = unlimited (unpaid)
+  yearlyQuota Int?
+  isPaid      Boolean        @default(true)
+  requests    LeaveRequest[]
+
+  @@map("leave_types")
+}
+
+model Holiday {
+  id   String   @id @default(cuid())
+  date DateTime @unique @db.Date
+  name String
+
+  @@map("holidays")
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  employeeId String
+  date       DateTime         @db.Date
+  checkIn    DateTime
+  checkOut   DateTime?
+  status     AttendanceStatus
+  source     String           @default("web")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@map("attendance")
+}
+
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  employeeId      String
+  leaveTypeId     String
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  /// working days, computed when the request is created
+  days            Int
+  reason          String
+  status          LeaveStatus @default(PENDING)
+  decidedById     String?
+  decisionComment String?
+  createdAt       DateTime    @default(now())
+
+  employee  Employee  @relation(fields: [employeeId], references: [id])
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@index([employeeId, status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
+model PayrollRun {
+  id            String        @id @default(cuid())
+  /// "2026-10"
+  month         String        @unique
+  status        PayrollStatus @default(DRAFT)
+  createdById   String
+  finalizedById String?
+  finalizedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  payslips      Payslip[]
+
+  @@map("payroll_runs")
+}
+
+model Payslip {
+  id          String  @id @default(cuid())
+  runId       String
+  employeeId  String
+  basic       Decimal @db.Decimal(12, 2)
+  hra         Decimal @db.Decimal(12, 2)
+  medical     Decimal @db.Decimal(12, 2)
+  gross       Decimal @db.Decimal(12, 2)
+  deductions  Decimal @db.Decimal(12, 2)
+  tax         Decimal @db.Decimal(12, 2)
+  net         Decimal @db.Decimal(12, 2)
+  workingDays Int
+  paidDays    Float
+
+  run      PayrollRun @relation(fields: [runId], references: [id])
+  employee Employee   @relation(fields: [employeeId], references: [id])
+
+  @@unique([runId, employeeId])
+  @@map("payslips")
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  body       String
+  authorId   String
+  authorName String
+  createdAt  DateTime @default(now())
+
+  @@map("announcements")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+/// Append-only. There is no update or delete path for this table anywhere in the app.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorRole Role
+  actorName String
+  /// create | update | approve | reject | finalize | deactivate | reset_password | ...
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Every AI call, including failures and refusals.
+model AiLog {
+  id               String   @id @default(cuid())
+  userId           String
+  role             Role
+  /// chat | summary | smart_leave
+  feature          String
+  input            String
+  toolCalls        Json?
+  output           String?
+  /// ok | error | timeout | invalid_output | rate_limited
+  status           String
+  latencyMs        Int
+  model            String?
+  promptTokens     Int?
+  completionTokens Int?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("ai_logs")
+}
