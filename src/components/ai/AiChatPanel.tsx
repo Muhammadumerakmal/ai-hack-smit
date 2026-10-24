@@ -20,11 +20,11 @@ const SUGGESTIONS: Record<Role, string[]> = {
   EMPLOYEE: ["How many sick leaves do I have left this year?", "How many times was I late this month?", "What time counts as late?"],
 };
 
-const HISTORY_SENT = 10;
-
 export function AiChatPanel({ role, defaultOpen = false }: { role: Role; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   const [messages, setMessages] = useState<Message[]>([]);
+  // The server keeps the conversation; the reply returns the id to send with the next question.
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -42,9 +42,12 @@ export function AiChatPanel({ role, defaultOpen = false }: { role: Role; default
     setInput("");
     setLoading(true);
 
-    // Only real Q&A turns go back to the server; error bubbles stay local.
-    const history = next.filter((m) => !m.error).slice(-HISTORY_SENT).map(({ role, content }) => ({ role, content }));
-    const res = await postAi<{ answer: string }>("chat", { messages: history });
+    // Only the new question goes to the server; earlier turns live in its history.
+    const res = await postAi<{ answer: string; conversationId: string }>(
+      "chat",
+      conversationId ? { conversationId, message: question } : { message: question },
+    );
+    if (res.ok && !conversationId) setConversationId(res.data.conversationId);
 
     setMessages((m) => [
       ...m,
