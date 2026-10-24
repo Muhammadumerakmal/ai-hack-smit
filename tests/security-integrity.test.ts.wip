@@ -1,0 +1,476 @@
+import { PrismaClient } from "@prisma/client";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import * as announcements from "@/app/api/announcements/route";
+import * as calendar from "@/app/api/attendance/calendar/route";
+import * as checkIn from "@/app/api/attendance/check-in/route";
+import * as checkOut from "@/app/api/attendance/check-out/route";
+import * as corrections from "@/app/api/attendance/corrections/route";
+import * as correctionDecision from "@/app/api/attendance/corrections/[id]/decision/route";
+import * as board from "@/app/api/attendance/board/route";
+import * as audit from "@/app/api/audit/route";
+import * as login from "@/app/api/auth/login/route";
+import * as logout from "@/app/api/auth/logout/route";
+import * as me from "@/app/api/auth/me/route";
+import * as dashboard from "@/app/api/dashboard/route";
+import * as employee from "@/app/api/employees/[id]/route";
+import * as employees from "@/app/api/employees/route";
+import * as exportCsv from "@/app/api/employees/export/route";
+import * as leaveBalance from "@/app/api/leave-balance/route";
+import * as leaveCancel from "@/app/api/leave-requests/[id]/cancel/route";
+import * as leaveDecision from "@/app/api/leave-requests/[id]/decision/route";
+import * as leaveRequests from "@/app/api/leave-requests/route";
+import * as notifRead from "@/app/api/notifications/read/route";
+import * as holidays from "@/app/api/org/holidays/route";
+import * as payrollRuns from "@/app/api/payroll/runs/route";
+import * as finalize from "@/app/api/payroll/runs/[month]/finalize/route";
+import * as payslipPdf from "@/app/api/payslips/[id]/pdf/route";
+import * as payslips from "@/app/api/payslips/route";
+import * as setup from "@/app/api/setup/route";
+import * as user from "@/app/api/users/[id]/route";
+import * as users from "@/app/api/users/route";
+import { currentMonth } from "@/lib/dates";
+import { MAX_FAILED_LOGINS, resetLoginThrottle } from "@/server/services/auth.service";
+import { call, hasDb, seed } from "./helpers";
+
+// QA-1 security & integrity checks. Each `it` names the rule it protects; regressions for fixed bugs say "SEC-n".
+
+const FUTURE_MON = "2099-01-05";
+const DEMO_PASSWORD = "Demo1234";
+
+describe.skipIf(!hasDb)("security & integrity", () => {
+  const db = new PrismaClient();
+  const ids: Record<string, string> = {}; // user ids
+  const emp: Record<string, string> = {}; // employee ids
+
+  async function load() {
+    for (const u of await db.user.findMany({ include: { employee: true } })) {
+      const key = u.email.split("@")[0];
+      ids[key] = u.id;
+      if (u.employee) emp[key] = u.employee.id;
+    }
+  }
+
+  beforeAll(async () => {
+    await seed(db);
+    await load();
+  });
+  afterAll(() => db.$disconnect());
+
+  // ---------- 2. Cross-user access: Sara (employee) against Ali's records ----------
+
+  describe("employees cannot reach a colleague's records", () => {
+    it("Employee 360 and profile edit of a colleague → 403", async () => {
+      expect((await call(employee.GET, { userId: ids.sara, params: { id: emp.ali } })).status).toBe(403);
+      const patch = await call(employee.PATCH, { userId: ids.sara, params: { id: emp.ali }, method: "PATCH", body: { phone: "0300" } });
+      expect(patch.status).toBe(403);
+      expect((await db.employee.findUniqueOrThrow({ where: { id: emp.ali } })).phone).not.toBe("0300");
+    });
+
+    it("cannot cancel a colleague's leave", async () => {
+      const aliLeave = await db.leaveRequest.findFirstOrThrow({ where: { employeeId: emp.ali, status: "PENDING" } });
+      expect((await call(leaveCancel.POST, { userId: ids.sara, params: { id: aliLeave.id }, method: "POST" })).status).toBe(403);
+      expect((await db.leaveRequest.findUniqueOrThrow({ where: { id: aliLeave.id } })).status).toBe("PENDING");
+    });
+
+    it("cannot download a colleague's payslip, and the list holds only her own finalized slips", async () => {
+      const aliSlip = await db.payslip.findFirstOrThrow({ where: { employeeId: emp.ali } });
+      expect((await call(payslipPdf.GET, { userId: ids.sara, params: { id: aliSlip.id } })).status).toBe(403);
+      const list = await call(payslips.GET, { userId: ids.sara, url: "/api/payslips" });
+      expect(list.status).toBe(200);
+      const items = list.body.items as { employee?: { name?: string }; employeeId?: string }[];
+      expect(items.length).toBeGreaterThan(0);
+      expect(JSON.stringify(items)).not.toContain("Ali Raza");
+    });
+
+    it("calendar and leave balance of a colleague → 403", async () => {
+      expect((await call(calendar.GET, { userId: ids.sara, url: `/api/attendance/calendar?employeeId=${emp.ali}` })).status).toBe(403);
+      expect((await call(leaveBalance.GET, { userId: ids.sara, url: `/api/leave-balance?employeeId=${emp.ali}` })).status).toBe(403);
+    });
+
+    it("lists (employees, leave, corrections, dashboard) only ever contain her own data", async () => {
+      await call(corrections.POST, { userId: ids.ali, body: { date: "2026-10-01", checkIn: "09:00", checkOut: "17:00", reason: "forgot" } });
+      const empList = await call(employees.GET, { userId: ids.sara, url: "/api/employees?search=a&pageSize=100" });
+      expect(empList.body.total).toBe(1);
+      expect(empList.body.items[0].id).toBe(emp.sara);
+      const leave = await call(leaveRequests.GET, { userId: ids.sara, url: "/api/leave-requests" });
+      expect((leave.body.items as { employeeId: string }[]).every((l) => l.employeeId === emp.sara)).toBe(true);
+      const corr = await call(corrections.GET, { userId: ids.sara, url: "/api/attendance/corrections" });
+      expect(JSON.stringify(corr.body)).not.toContain(emp.ali);
+      const dash = await call(dashboard.GET, { userId: ids.sara, url: "/api/dashboard" });
+      expect(dash.status).toBe(200);
+      expect(JSON.stringify(dash.body)).not.toMatch(/Ali Raza|Bilal Shah|Zara Malik|basicSalary/);
+    });
+
+    it("marking a colleague's notification as read does nothing", async () => {
+      const n = await db.notification.create({ data: { userId: ids.ali, title: "t", body: "b" } });
+      const res = await call(notifRead.POST, { userId: ids.sara, body: { ids: [n.id] } });
+      expect(res.status).toBe(200);
+      expect((await db.notification.findUniqueOrThrow({ where: { id: n.id } })).readAt).toBeNull();
+    });
+  });
+
+  // ---------- 3. Mass assignment ----------
+
+  describe("mass assignment is ignored", () => {
+    it("an employee editing her own profile can change only phone and address", async () => {
+      const before = await db.employee.findUniqueOrThrow({ where: { id: emp.sara }, include: { user: true } });
+      const res = await call(employee.PATCH, {
+        userId: ids.sara,
+        method: "PATCH",
+        params: { id: emp.sara },
+        body: { phone: "0300-7654321", basicSalary: 1, status: "EXITED", role: "ADMIN", userId: ids.admin, departmentId: "x", email: "hack@x.test", fullName: "Hacker", exitDate: "2020-01-01", code: "HACK" },
+      });
+      expect(res.status).toBe(200);
+      const after = await db.employee.findUniqueOrThrow({ where: { id: emp.sara }, include: { user: true } });
+      expect(after.phone).toBe("0300-7654321");
+      expect({ ...after, phone: before.phone, user: { ...after.user } }).toMatchObject({
+        basicSalary: before.basicSalary,
+        status: before.status,
+        email: before.email,
+        fullName: before.fullName,
+        code: before.code,
+        userId: before.userId,
+        departmentId: before.departmentId,
+        exitDate: before.exitDate,
+      });
+      expect(after.user!.role).toBe("EMPLOYEE");
+    });
+
+    it("HR cannot re-link an employee's login, id or code through PATCH", async () => {
+      const before = await db.employee.findUniqueOrThrow({ where: { id: emp.ali } });
+      const res = await call(employee.PATCH, { userId: ids.hr, method: "PATCH", params: { id: emp.ali }, body: { userId: ids.admin, id: "new-id", code: "HACK", passwordHash: "x" } });
+      expect(res.status).toBe(200);
+      const after = await db.employee.findUniqueOrThrow({ where: { id: emp.ali } });
+      expect([after.userId, after.code]).toEqual([before.userId, before.code]);
+    });
+
+    it("creating an employee cannot set role, password or the change-password flag", async () => {
+      const dept = await db.department.findFirstOrThrow();
+      const res = await call(employees.POST, {
+        userId: ids.hr,
+        body: { fullName: "Mass Assign", email: "mass@demo.test", departmentId: dept.id, joinDate: "2026-01-01", basicSalary: 50000, role: "ADMIN", mustChangePassword: false, passwordHash: "x", userId: ids.admin },
+      });
+      expect(res.status).toBe(200);
+      const u = await db.user.findUniqueOrThrow({ where: { email: "mass@demo.test" } });
+      expect([u.role, u.mustChangePassword, u.passwordHash.startsWith("$2")]).toEqual(["EMPLOYEE", true, true]);
+    });
+
+    it("Admin cannot mint another Admin (POST role ignored, PATCH role=ADMIN rejected)", async () => {
+      const created = await call(users.POST, { userId: ids.admin, body: { name: "Not Admin", email: "notadmin@demo.test", role: "ADMIN" } });
+      expect(created.status).toBe(200);
+      expect((await db.user.findUniqueOrThrow({ where: { email: "notadmin@demo.test" } })).role).toBe("HR");
+      const promote = await call(user.PATCH, { userId: ids.admin, method: "PATCH", params: { id: ids.hr }, body: { role: "ADMIN" } });
+      expect(promote.status).toBe(400);
+    });
+
+    it("leave and correction requests are always for the caller, always PENDING, with server-computed days", async () => {
+      const res = await call(leaveRequests.POST, {
+        userId: ids.sara,
+        body: { type: "casual", start: FUTURE_MON, end: FUTURE_MON, reason: "x", status: "APPROVED", employeeId: emp.ali, days: 0 },
+      });
+      expect(res.status).toBe(200);
+      const l = await db.leaveRequest.findUniqueOrThrow({ where: { id: res.body.request.id } });
+      expect([l.employeeId, l.status, l.days]).toEqual([emp.sara, "PENDING", 1]);
+
+      const c = await call(corrections.POST, { userId: ids.sara, body: { date: "2026-10-02", checkIn: "09:00", reason: "forgot to check in", employeeId: emp.ali, status: "APPROVED" } });
+      expect(c.status, JSON.stringify(c.body)).toBe(200);
+      const row = await db.attendanceCorrection.findUniqueOrThrow({ where: { id: c.body.correction.id } });
+      expect([row.employeeId, row.status]).toEqual([emp.sara, "PENDING"]);
+    });
+
+    it("announcement author comes from the session, not the body", async () => {
+      const res = await call(announcements.POST, { userId: ids.hr, body: { title: "Office closed", body: "Friday", authorId: ids.admin, authorName: "The CEO" } });
+      expect(res.status).toBe(200);
+      const a = await db.announcement.findUniqueOrThrow({ where: { id: res.body.id } });
+      expect([a.authorId, a.authorName]).toEqual([ids.hr, "Hina Khan"]);
+    });
+  });
+
+  // ---------- 4. Injection / XSS ----------
+
+  describe("injection and stored markup", () => {
+    it("SQL metacharacters in search are plain text (parameterised queries)", async () => {
+      for (const q of ["' OR 1=1 --", "\"; DROP TABLE users; --", "\\", "%' OR '1'='1"]) {
+        const res = await call(employees.GET, { userId: ids.hr, url: `/api/employees?search=${encodeURIComponent(q)}` });
+        expect(res.status, q).toBe(200);
+        expect(res.body.total, q).toBe(0);
+      }
+      expect(await db.user.count()).toBeGreaterThan(0);
+    });
+
+    it("stored <script> comes back as inert data (React escapes it on render; no dangerouslySetInnerHTML in src)", async () => {
+      const evil = `<script>alert("x")</script><img src=x onerror=alert(1)>`;
+      const res = await call(announcements.POST, { userId: ids.hr, body: { title: evil.slice(0, 100), body: evil } });
+      expect(res.status).toBe(200);
+      const list = await call(announcements.GET, { userId: ids.sara, url: "/api/announcements" });
+      expect(list.body.items[0].body).toBe(evil);
+    });
+
+    it("payslip PDF escapes PDF string delimiters from user-controlled names", async () => {
+      await db.employee.update({ where: { id: emp.sara }, data: { fullName: "Sara (x) \\ ) Tj ET <script>" } });
+      const slip = await db.payslip.findFirstOrThrow({ where: { employeeId: emp.sara } });
+      const res = await call(payslipPdf.GET, { userId: ids.admin, params: { id: slip.id } });
+      expect(res.status).toBe(200);
+      const text = Buffer.from(res.body as Uint8Array).toString("latin1");
+      expect(text.startsWith("%PDF")).toBe(true);
+      expect(text).toContain("Sara \\(x\\) \\\\ \\) Tj ET <script>");
+      await db.employee.update({ where: { id: emp.sara }, data: { fullName: "Sara Ahmed" } });
+    });
+  });
+
+  describe("headers and exports built from user data", () => {
+    it("SEC-10: an employee code with quotes or a newline cannot break the PDF download header", async () => {
+      const slip = await db.payslip.findFirstOrThrow({ where: { employeeId: emp.ali }, include: { run: true } });
+      const before = await db.employee.findUniqueOrThrow({ where: { id: emp.ali } });
+      await db.employee.update({ where: { id: emp.ali }, data: { code: 'E"9
+Set-Cookie: x=1' } });
+      try {
+        const res = await call(payslipPdf.GET, { userId: ids.admin, params: { id: slip.id } });
+        expect(res.status).toBe(200);
+        expect(res.headers.get("content-disposition")).toBe(`attachment; filename="payslip-E_9__Set-Cookie__x_1-${slip.run.month}.pdf"`);
+      } finally {
+        await db.employee.update({ where: { id: emp.ali }, data: { code: before.code } });
+      }
+    });
+
+    // SEC-12 lives in people.service.ts (QA-3). Flip once exportEmployeesCsv neutralises formula cells.
+    const CSV_FORMULA_FIXED = false;
+    (CSV_FORMULA_FIXED ? it : it.skip)("SEC-12: CSV export neutralises spreadsheet formulas (=, +, -, @) from user data", async () => {
+      const dept = await db.department.findFirstOrThrow();
+      await call(employees.POST, { userId: ids.hr, body: { fullName: '=HYPERLINK("http://evil.test","x")', email: "formula@demo.test", departmentId: dept.id, joinDate: "2026-01-01", basicSalary: 1000 } });
+      const res = await call(exportCsv.GET, { userId: ids.hr, url: "/api/employees/export" });
+      const cells = String(res.body).split(/?
+/).flatMap((line) => line.split(","));
+      expect(cells.filter((c) => /^"?[=+\-@]/.test(c))).toEqual([]);
+    });
+  });
+
+  describe("brute force", () => {
+    it(`SEC-11: after ${MAX_FAILED_LOGINS} wrong passwords for one email, login is refused with 429 (even with the right password)`, async () => {
+      resetLoginThrottle();
+      for (let i = 0; i < MAX_FAILED_LOGINS; i++) {
+        expect((await call(login.POST, { body: { email: "zara@demo.test", password: `wrong-${i}` } })).status).toBe(401);
+      }
+      const blocked = await call(login.POST, { body: { email: "zara@demo.test", password: DEMO_PASSWORD } });
+      expect([blocked.status, blocked.body.error]).toEqual([429, "rate_limited"]);
+      // Other accounts are unaffected.
+      expect((await call(login.POST, { body: { email: "sara@demo.test", password: DEMO_PASSWORD } })).status).toBe(200);
+      resetLoginThrottle();
+      expect((await call(login.POST, { body: { email: "zara@demo.test", password: DEMO_PASSWORD } })).status).toBe(200);
+    });
+  });
+
+  // ---------- 6. Error handling ----------
+
+  describe("bad input never leaks internals", () => {
+    it("malformed JSON → 400; JSON of the wrong shape → 400", async () => {
+      const bad = await call(announcements.POST, { userId: ids.hr, body: "{not json" });
+      expect([bad.status, bad.body.error]).toEqual([400, "bad_request"]);
+      const arr = await call(announcements.POST, { userId: ids.hr, body: [] });
+      expect(arr.status).toBe(400);
+    });
+
+    it("SEC-3: a body over 3 MB → 413 before parsing", async () => {
+      const res = await call(announcements.POST, { userId: ids.hr, body: JSON.stringify({ title: "x", body: "y".repeat(3_200_000) }) });
+      expect([res.status, res.body.error]).toEqual([413, "payload_too_large"]);
+    });
+
+    it("garbage query parameters give 4xx or a sane default, never a 500 or Prisma text", async () => {
+      const cases: [Parameters<typeof call>[0], string, string][] = [
+        [leaveRequests.GET, "/api/leave-requests?status=FOO", "hr"],
+        [employees.GET, "/api/employees?status=NOPE&page=-3&pageSize=999999", "hr"],
+        [calendar.GET, "/api/attendance/calendar?month=2026-13", "sara"],
+        [calendar.GET, "/api/attendance/calendar?month=abc", "sara"],
+        [board.GET, "/api/attendance/board?date=yesterday", "hr"],
+        [dashboard.GET, "/api/dashboard?start=bad&end=2026-01-01", "hr"],
+        [dashboard.GET, "/api/dashboard?start=2026-12-01&end=2026-01-01", "hr"],
+        [payslips.GET, "/api/payslips?month=2026-99", "hr"],
+        [audit.GET, "/api/audit?page=-5&pageSize=100000", "admin"],
+        [holidays.GET, "/api/org/holidays?year=abc", "hr"],
+        [leaveBalance.GET, "/api/leave-balance?year=99999999", "sara"], // SEC-8
+        [holidays.GET, "/api/org/holidays?year=99999999", "hr"], // SEC-8
+        [corrections.GET, "/api/attendance/corrections?status=DROP", "hr"],
+      ];
+      const failures: string[] = [];
+      for (const [h, url, who] of cases) {
+        const res = await call(h, { userId: ids[who], url });
+        const text = JSON.stringify(res.body);
+        if (res.status >= 500 || /prisma|invalid `|stack/i.test(text)) failures.push(`${url} → ${res.status} ${text.slice(0, 160)}`);
+      }
+      expect(failures).toEqual([]);
+    });
+  });
+
+  // ---------- 7. Session ----------
+
+  describe("sessions and cookies", () => {
+    it("login sets an HttpOnly, SameSite=Lax cookie (Secure on https) and never returns the token in the body (SEC-2)", async () => {
+      const res = await call(login.POST, { body: { email: "sara@demo.test", password: DEMO_PASSWORD } });
+      expect(res.status).toBe(200);
+      expect(res.body).not.toHaveProperty("token");
+      const cookie = res.headers.get("set-cookie") ?? "";
+      expect(cookie).toMatch(/token=/);
+      expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).toMatch(/SameSite=lax/i);
+      expect(cookie).not.toMatch(/Secure/i); // plain http in tests
+
+      const https = await login.POST(
+        new Request("https://hcm.example/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "sara@demo.test", password: DEMO_PASSWORD }) }),
+      );
+      expect(https.headers.get("set-cookie")).toMatch(/Secure/i);
+    });
+
+    it("logout expires the cookie", async () => {
+      const res = await logout.POST();
+      expect(res.headers.get("set-cookie")).toMatch(/token=;.*Max-Age=0/i);
+    });
+
+    it("a temporary password blocks every API except me / change-password", async () => {
+      const dept = await db.department.findFirstOrThrow();
+      const created = await call(employees.POST, { userId: ids.hr, body: { fullName: "Temp User", email: "temp@demo.test", departmentId: dept.id, joinDate: "2026-01-01", basicSalary: 40000 } });
+      const tempUser = await db.user.findUniqueOrThrow({ where: { email: "temp@demo.test" } });
+      expect(created.body.tempPassword).toBeTruthy();
+      for (const [h, url] of [[employees.GET, "/api/employees"], [dashboard.GET, "/api/dashboard"], [payslips.GET, "/api/payslips"], [checkIn.POST, "/api/attendance/check-in"]] as const) {
+        const res = await call(h, { userId: tempUser.id, url, method: h === checkIn.POST ? "POST" : "GET" });
+        expect([res.status, res.body.error], url).toEqual([403, "password_change_required"]);
+      }
+      expect((await call(me.GET, { userId: tempUser.id })).status).toBe(200);
+    });
+
+    it("deactivating a user ends their existing session at once, and blocks login", async () => {
+      const bilalToken = ids.bilal;
+      expect((await call(me.GET, { userId: bilalToken })).status).toBe(200);
+      expect((await call(user.PATCH, { userId: ids.admin, method: "PATCH", params: { id: ids.bilal }, body: { isActive: false } })).status).toBe(200);
+      expect((await call(me.GET, { userId: bilalToken })).status).toBe(401);
+      const relogin = await call(login.POST, { body: { email: "bilal@demo.test", password: DEMO_PASSWORD } });
+      expect(relogin.status).toBe(403);
+      await call(user.PATCH, { userId: ids.admin, method: "PATCH", params: { id: ids.bilal }, body: { isActive: true } });
+    });
+
+    it("unknown email and wrong password get the same 401 message", async () => {
+      const a = await call(login.POST, { body: { email: "nobody@demo.test", password: "whatever1" } });
+      const b = await call(login.POST, { body: { email: "sara@demo.test", password: "wrong-password1" } });
+      expect([a.status, b.status]).toEqual([401, 401]);
+      expect(a.body.message).toBe(b.body.message);
+    });
+
+    it("no response ever includes password hashes", async () => {
+      await call(user.PATCH, { userId: ids.admin, method: "PATCH", params: { id: ids.ali }, body: { isActive: true } });
+      const bodies = [
+        await call(users.GET, { userId: ids.admin }),
+        await call(employee.GET, { userId: ids.hr, params: { id: emp.ali } }),
+        await call(audit.GET, { userId: ids.admin, url: "/api/audit?pageSize=100" }),
+        await call(me.GET, { userId: ids.sara }),
+      ].map((r) => JSON.stringify(r.body));
+      for (const b of bodies) {
+        expect(b).not.toMatch(/passwordHash/);
+        expect(b).not.toMatch(/\$2[aby]\$\d\d\$/);
+      }
+    });
+  });
+
+  // ---------- 5. Races and duplicate submissions ----------
+
+  describe("concurrency", () => {
+    const statuses = (rs: { status: number }[]) => rs.map((r) => r.status).sort();
+
+    it("double check-in at the same moment → exactly one 200 and one 409", async () => {
+      await db.attendance.deleteMany({ where: { employeeId: emp.zara } });
+      const rs = await Promise.all([1, 2].map(() => call(checkIn.POST, { userId: ids.zara, method: "POST" })));
+      expect(statuses(rs)).toEqual([200, 409]);
+    });
+
+    it("double payroll finalize → one 200, one 409", async () => {
+      const month = currentMonth();
+      expect((await call(payrollRuns.POST, { userId: ids.hr, body: { month } })).status).toBe(200);
+      const rs = await Promise.all([1, 2].map(() => call(finalize.POST, { userId: ids.admin, method: "POST", params: { month } })));
+      expect(statuses(rs)).toEqual([200, 409]);
+    });
+
+    it("the same new employee submitted twice at once → one 200, one 409", async () => {
+      const dept = await db.department.findFirstOrThrow();
+      const body = { fullName: "Twin", email: "twin@demo.test", departmentId: dept.id, joinDate: "2026-01-01", basicSalary: 30000 };
+      const rs = await Promise.all([1, 2].map(() => call(employees.POST, { userId: ids.hr, body })));
+      expect(statuses(rs)).toEqual([200, 409]);
+      expect(await db.user.count({ where: { email: "twin@demo.test" } })).toBe(1);
+    });
+
+    // ----- Known races in services owned by QA-3 (leave.service.ts, attendance.service.ts). -----
+    // Reproduced intermittently over 8 runs (see QA-1 report). Each scenario repeats ROUNDS times so a fix is proven,
+    // not lucky. Flip RACES_FIXED to true once the conditional-update fixes in the report are applied.
+    const RACES_FIXED = false;
+    const raceIt = RACES_FIXED ? it : it.skip;
+    const ROUNDS = 5;
+    const casualId = async () => (await db.leaveType.findUniqueOrThrow({ where: { code: "casual" } })).id;
+    const newLeave = async (day: string) =>
+      db.leaveRequest.create({ data: { employeeId: emp.ali, leaveTypeId: await casualId(), startDate: new Date(day), endDate: new Date(day), days: 1, reason: "race" } });
+
+    raceIt("SEC-9: double check-out → one 200, one 409, the first check-out time is kept", async () => {
+      for (let i = 0; i < ROUNDS; i++) {
+        await db.attendance.deleteMany({ where: { employeeId: emp.zara } });
+        await call(checkIn.POST, { userId: ids.zara, method: "POST" });
+        const rs = await Promise.all([1, 2].map(() => call(checkOut.POST, { userId: ids.zara, method: "POST" })));
+        expect(statuses(rs)).toEqual([200, 409]);
+      }
+    });
+
+    raceIt("SEC-4: approve and reject of the same leave at once → exactly one decision wins", async () => {
+      for (let i = 0; i < ROUNDS; i++) {
+        const day = `2099-02-${String(2 + i).padStart(2, "0")}`;
+        const l = await newLeave(day);
+        const rs = await Promise.all([
+          call(leaveDecision.POST, { userId: ids.hr, params: { id: l.id }, body: { decision: "APPROVED", comment: "ok" } }),
+          call(leaveDecision.POST, { userId: ids.hr, params: { id: l.id }, body: { decision: "REJECTED", comment: "no" } }),
+        ]);
+        expect(statuses(rs)).toEqual([200, 409]);
+        expect(await db.notification.count({ where: { userId: ids.ali, title: { startsWith: "Leave " }, body: { contains: day } } })).toBe(1);
+      }
+    });
+
+    raceIt("SEC-5: employee cancels while HR approves → exactly one wins and the final status matches it", async () => {
+      for (let i = 0; i < ROUNDS; i++) {
+        const l = await newLeave(`2099-03-${String(2 + i).padStart(2, "0")}`);
+        const [cancel, approve] = await Promise.all([
+          call(leaveCancel.POST, { userId: ids.ali, method: "POST", params: { id: l.id } }),
+          call(leaveDecision.POST, { userId: ids.hr, params: { id: l.id }, body: { decision: "APPROVED", comment: "ok" } }),
+        ]);
+        const final = (await db.leaveRequest.findUniqueOrThrow({ where: { id: l.id } })).status;
+        expect([cancel.status, approve.status].filter((s) => s === 200).length).toBe(1);
+        expect(final).toBe(cancel.status === 200 ? "CANCELLED" : "APPROVED");
+      }
+    });
+
+    raceIt("SEC-6: two decisions on one attendance correction at once → exactly one wins", async () => {
+      for (let i = 0; i < ROUNDS; i++) {
+        const c = await call(corrections.POST, { userId: ids.ali, body: { date: `2026-09-${String(1 + i).padStart(2, "0")}`, checkIn: "09:00", checkOut: "17:00", reason: "race test" } });
+        const id = c.body.correction.id;
+        const rs = await Promise.all([
+          call(correctionDecision.POST, { userId: ids.hr, params: { id }, body: { approve: true, comment: "ok" } }),
+          call(correctionDecision.POST, { userId: ids.hr, params: { id }, body: { approve: false, comment: "no" } }),
+        ]);
+        expect(statuses(rs)).toEqual([200, 409]);
+      }
+    });
+
+    raceIt("SEC-7: the same leave request submitted twice at once → one 200, one 422 (no duplicate overlapping leave)", async () => {
+      for (let i = 0; i < ROUNDS; i++) {
+        const day = `2099-04-${String(6 + i).padStart(2, "0")}`;
+        const body = { type: "casual", start: day, end: day, reason: "double click" };
+        const rs = await Promise.all([1, 2].map(() => call(leaveRequests.POST, { userId: ids.ali, body })));
+        expect(statuses(rs)).toEqual([200, 422]);
+        expect(await db.leaveRequest.count({ where: { employeeId: emp.ali, startDate: new Date(day) } })).toBe(1);
+      }
+    });
+
+    it("two first-run setups at once → one 200, one 409, exactly one Admin", async () => {
+      await db.$executeRawUnsafe(
+        `TRUNCATE ai_logs, audit_logs, notifications, announcements, payslips, payroll_runs, attendance_corrections, leave_requests, attendance, employees, users, holidays, leave_types, designations, departments, settings RESTART IDENTITY CASCADE`,
+      );
+      const body = (n: number) => ({ companyName: "Race Co", adminName: "Admin", adminEmail: `admin${n}@race.test`, adminPassword: "Admin12345" });
+      const rs = await Promise.all([1, 2].map((n) => call(setup.POST, { body: body(n) })));
+      expect(statuses(rs)).toEqual([200, 409]);
+      expect(await db.user.count({ where: { role: "ADMIN" } })).toBe(1);
+      expect(await db.leaveType.count()).toBe(4);
+    });
+  });
+});
