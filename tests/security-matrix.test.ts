@@ -3,6 +3,8 @@ import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { signToken } from "@/lib/auth";
 import { setLlm } from "@/server/ai/llm";
+import { setChatModel } from "@/server/ai/chat";
+import { constantModel } from "./ai-fake";
 import { hasDb, seed } from "./helpers";
 
 // Endpoint × role matrix (QA-1). Every route.ts under src/app/api is imported through a glob, so a new route
@@ -142,10 +144,12 @@ describe.skipIf(!hasDb)("security: endpoint × role matrix", () => {
 
     // AI routes run against a scripted model: no provider calls, no cost.
     setLlm({ complete: async () => ({ content: '{"bullets":[]}', toolCalls: [], model: "fake" }) });
+    setChatModel(constantModel("ok"));
   });
 
   afterAll(async () => {
     setLlm(null);
+    setChatModel(null);
     await db.$disconnect();
   });
 

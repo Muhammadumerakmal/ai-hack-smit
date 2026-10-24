@@ -140,7 +140,9 @@ export const TOOLS = [
 /** The tool list sent to the model: only what this role is allowed to call. */
 export function toolDefsFor(role: Role): ToolDef[] {
   return TOOLS.filter((t) => t.roles.includes(role)).map((t) => {
-    const parameters = z.toJSONSchema(t.input) as Record<string, unknown>;
+    // JSON round-trip drops zod's non-enumerable `~standard` marker, which the OpenAI
+    // Agents SDK would otherwise treat as a Standard Schema and reject with strict: false.
+    const parameters = JSON.parse(JSON.stringify(z.toJSONSchema(t.input))) as Record<string, unknown>;
     delete parameters.$schema;
     return { name: t.name, description: t.description, parameters };
   });

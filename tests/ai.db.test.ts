@@ -2,12 +2,13 @@ import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { addDays, todayIso, weekdayOf } from "@/lib/dates";
 import type { Session } from "@/lib/session";
-import { runChat } from "@/server/ai/chat";
+import { runChat, setChatModel } from "@/server/ai/chat";
 import { guardedAiCall } from "@/server/ai/guard";
 import { setLlm, type LlmClient, type LlmRequest, type LlmResponse } from "@/server/ai/llm";
 import { runSmartLeave } from "@/server/ai/smart-leave";
 import { runSummary } from "@/server/ai/summary";
 import { runTool, toolDefsFor } from "@/server/ai/tools";
+import { callTool, hangingModel, say, ScriptedModel } from "./ai-fake";
 import { getDashboardKpis } from "@/server/services/analytics.service";
 import { applyForLeave } from "@/server/services/leave.service";
 import { seedDemo } from "../scripts/dev-seed";
@@ -26,8 +27,6 @@ class ScriptedLlm implements LlmClient {
     return { content: null, toolCalls: [], model: "fake", ...(await step(req)) };
   }
 }
-const say = (content: string) => () => ({ content });
-const callTool = (name: string, args: object = {}) => () => ({ toolCalls: [{ id: `call_${name}`, name, arguments: JSON.stringify(args) }] });
 
 describe.skipIf(!hasDb)("M8 against the database", () => {
   const db = new PrismaClient();
@@ -49,9 +48,11 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
   beforeEach(async () => {
     await db.aiLog.deleteMany();
     setLlm(null);
+    setChatModel(null);
   });
   afterAll(async () => {
     setLlm(null);
+    setChatModel(null);
     await db.$disconnect();
   });
 
@@ -125,17 +126,18 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
 
   describe("chat loop", () => {
     it("calls a tool with the user's scope and answers from its result", async () => {
-      const llm = new ScriptedLlm([callTool("get_my_leave_balance"), say("You have 7 sick leaves left this year.")]);
-      setLlm(llm);
+      const model = new ScriptedModel([callTool("get_my_leave_balance"), say("You have 7 sick leaves left this year.")]);
+      setChatModel(model);
       const res = await guardedAiCall(sara, "chat", "sick leaves left?", (sig) =>
         runChat(sara, { messages: [{ role: "user", content: "How many sick leaves do I have left this year?" }] }, sig),
       );
       expect(res).toMatchObject({ ok: true, label: "AI-generated", data: { answer: "You have 7 sick leaves left this year." } });
       // The tool result the model saw is Sara's own balance.
-      const toolMsg = llm.requests[1].messages.find((m) => m.role === "tool");
-      expect(toolMsg && "content" in toolMsg && toolMsg.content).toContain('"remaining":7');
+      const toolMsg = model.requests[1].input.find((i) => i.type === "function_call_result") as { output: { text: string } } | undefined;
+      expect(toolMsg && toolMsg.output.text).toContain('"remaining":7');
       // Employee requests never carry company-wide tools.
-      expect(llm.requests[0].tools!.map((t) => t.name)).not.toContain("search_employees");
+      const firstTools = model.requests[0].tools as Array<{ name: string }>;
+      expect(firstTools.map((t) => t.name)).not.toContain("search_employees");
 
       const log = await db.aiLog.findFirstOrThrow({ where: { userId: sara.userId } });
       expect(log).toMatchObject({ feature: "chat", status: "ok", role: "EMPLOYEE" });
@@ -143,21 +145,21 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
     });
 
     it("puts the policy rules in the system prompt", async () => {
-      const llm = new ScriptedLlm([say("A check-in after 09:15 is late.")]);
-      setLlm(llm);
+      const model = new ScriptedModel([say("A check-in after 09:15 is late.")]);
+      setChatModel(model);
       await runChat(ali, { messages: [{ role: "user", content: "What time counts as late?" }] }, signal);
-      const system = llm.requests[0].messages[0];
-      expect(system.role).toBe("system");
-      expect("content" in system && system.content).toContain("after 09:15 is late");
+      const system = model.requests[0].systemInstructions;
+      expect(system).toContain("after 09:15 is late");
     });
 
     it("stops after a bounded number of tool rounds", async () => {
       const loop = Array.from({ length: 4 }, () => callTool("get_my_leave_balance"));
-      const llm = new ScriptedLlm([...loop, say("Here is your balance.")]);
-      setLlm(llm);
+      const model = new ScriptedModel([...loop, say("Here is your balance.")]);
+      setChatModel(model);
       const run = await runChat(sara, { messages: [{ role: "user", content: "balance" }] }, signal);
       expect(run.data.answer).toBe("Here is your balance.");
-      expect(llm.requests.at(-1)!.tools).toBeUndefined();
+      // MAX_TOOL_ROUNDS tool rounds plus one final answer call, then the run stops.
+      expect(model.requests).toHaveLength(5);
     });
   });
 
@@ -269,10 +271,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
 
   describe("guardrails", () => {
     it("times out with a friendly fallback and logs it", async () => {
-      setLlm({
-        complete: (req) =>
-          new Promise((_, reject) => req.signal.addEventListener("abort", () => reject(new Error("aborted")))),
-      });
+      setChatModel(hangingModel());
       const res = await guardedAiCall(hr, "chat", "slow", (sig) => runChat(hr, { messages: [{ role: "user", content: "hi" }] }, sig));
       expect(res).toMatchObject({ ok: false, reason: "timeout" });
       expect((await db.aiLog.findFirstOrThrow()).status).toBe("timeout");
@@ -282,12 +281,12 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       await db.aiLog.createMany({
         data: Array.from({ length: 20 }, () => ({ userId: ali.userId, role: "EMPLOYEE" as const, feature: "chat", input: "x", status: "ok", latencyMs: 1 })),
       });
-      setLlm(new ScriptedLlm([say("should not be called")]));
+      setChatModel(new ScriptedModel([say("should not be called")]));
       await expect(
         guardedAiCall(ali, "chat", "one more", (sig) => runChat(ali, { messages: [{ role: "user", content: "hi" }] }, sig)),
       ).rejects.toMatchObject({ status: 429 });
       // Other users are unaffected.
-      setLlm(new ScriptedLlm([say("hello")]));
+      setChatModel(new ScriptedModel([say("hello")]));
       const ok = await guardedAiCall(admin, "chat", "hi", (sig) => runChat(admin, { messages: [{ role: "user", content: "hi" }] }, sig));
       expect(ok.ok).toBe(true);
     });
