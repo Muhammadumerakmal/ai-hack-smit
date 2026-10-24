@@ -166,7 +166,8 @@ interface NotificationList {
 
 function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { data, reload } = useApi<NotificationList>("/api/notifications");
+  const { data, error, loading, reload } = useApi<NotificationList>("/api/notifications");
+  const [readError, setReadError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setInterval(reload, 60_000);
@@ -177,8 +178,13 @@ function NotificationBell() {
     const next = !open;
     setOpen(next);
     if (next && data?.unread) {
-      await api("/api/notifications/read", { method: "POST", body: {} }).catch(() => {});
-      reload();
+      setReadError(null);
+      try {
+        await api("/api/notifications/read", { method: "POST", body: {} });
+        reload();
+      } catch (error) {
+        setReadError((error as Error).message);
+      }
     }
   }
 
@@ -198,17 +204,42 @@ function NotificationBell() {
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
           <p className="border-b border-zinc-200 px-3 py-2 text-xs font-semibold dark:border-zinc-800">Notifications</p>
+          {readError && <p role="alert" className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{readError}</p>}
           <ul className="max-h-80 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-900">
-            {!data?.items.length && <li className="px-3 py-6 text-center text-xs text-zinc-500">Nothing new.</li>}
-            {data?.items.map((n) => (
-              <li key={n.id}>
-                <Link href={n.link ?? "#"} onClick={() => setOpen(false)} className="block px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900">
+            {error ? (
+              <li className="px-3 py-4 text-center text-xs text-red-700 dark:text-red-300">
+                <p role="alert">{error}</p>
+                <button type="button" onClick={reload} className="mt-2 font-medium underline">
+                  Retry
+                </button>
+              </li>
+            ) : loading && !data ? (
+              <li role="status" className="px-3 py-6 text-center text-xs text-zinc-500">Loading notifications…</li>
+            ) : data && !data.items.length ? (
+              <li className="px-3 py-6 text-center text-xs text-zinc-500">Nothing new.</li>
+            ) : null}
+            {data?.items.map((n) => {
+              const content = (
+                <>
                   <p className="text-sm font-medium">{n.title}</p>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">{n.body}</p>
                   <p className="mt-0.5 text-[11px] text-zinc-400">{fmtDateTime(n.createdAt)}</p>
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+              const className = "block px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900";
+
+              return (
+                <li key={n.id}>
+                  {n.link ? (
+                    <Link href={n.link} onClick={() => setOpen(false)} className={className}>
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className={className}>{content}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

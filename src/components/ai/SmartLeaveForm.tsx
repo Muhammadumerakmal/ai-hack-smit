@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AiBadge } from "./AiBadge";
 import { postAi } from "./api";
 
@@ -21,18 +21,11 @@ interface Preview {
   notes: string[];
 }
 interface SmartLeaveData {
-  leaveTypes: LeaveType[];
   draft: LeaveFormValues | null;
   preview: Preview | null;
   clarify: string | null;
 }
 
-const DEFAULT_TYPES: LeaveType[] = [
-  { code: "annual", name: "Annual" },
-  { code: "sick", name: "Sick" },
-  { code: "casual", name: "Casual" },
-  { code: "unpaid", name: "Unpaid" },
-];
 const EMPTY: LeaveFormValues = { type: "", start: "", end: "", reason: "" };
 
 /**
@@ -41,14 +34,15 @@ const EMPTY: LeaveFormValues = { type: "", start: "", end: "", reason: "" };
  * which runs the real overlap / balance / holiday checks.
  */
 export function SmartLeaveForm({
-  leaveTypes: initialTypes = DEFAULT_TYPES,
+  leaveTypes,
+  leaveTypesLoading = false,
   onSubmit = defaultSubmit,
 }: {
-  leaveTypes?: LeaveType[];
+  leaveTypes: LeaveType[];
+  leaveTypesLoading?: boolean;
   onSubmit?: (v: LeaveFormValues) => Promise<{ ok: boolean; message: string }>;
 }) {
   const [text, setText] = useState("");
-  const [types, setTypes] = useState(initialTypes);
   const [form, setForm] = useState<LeaveFormValues>(EMPTY);
   const [aiFilled, setAiFilled] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -56,29 +50,14 @@ export function SmartLeaveForm({
   const [busy, setBusy] = useState<"ai" | "submit" | null>(null);
   const [question, setQuestion] = useState<string | null>(null);
 
-  // Real leave types from Settings, so the manual form is right even when the AI is unavailable.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/org/leave-types", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { items?: LeaveType[] } | null) => {
-        if (!cancelled && d?.items?.length) setTypes(d.items.map((t) => ({ code: t.code, name: t.name })));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function fillFromText() {
-    if (text.trim().length < 3) return;
+    if (text.trim().length < 3 || !leaveTypes.length) return;
     setBusy("ai");
     setNotice(null);
     setQuestion(null);
     const res = await postAi<SmartLeaveData>("smart-leave", { text });
     setBusy(null);
 
-    if (res.data?.leaveTypes?.length) setTypes(res.data.leaveTypes);
     if (res.ok && res.data.clarify) {
       // The assistant needs more detail: ask, keep the form as it was, let the user rephrase.
       setQuestion(res.data.clarify);
@@ -135,7 +114,7 @@ export function SmartLeaveForm({
           <button
             type="button"
             onClick={fillFromText}
-            disabled={busy !== null || text.trim().length < 3}
+            disabled={busy !== null || text.trim().length < 3 || leaveTypesLoading || !leaveTypes.length}
             className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
             {busy === "ai" ? "Reading…" : "✦ Fill the form"}
@@ -167,6 +146,13 @@ export function SmartLeaveForm({
         </p>
       )}
 
+      {leaveTypesLoading && !leaveTypes.length && <p role="status" className="text-sm text-zinc-500">Loading leave types…</p>}
+      {!leaveTypesLoading && !leaveTypes.length && (
+        <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
+          No leave types are available. Ask an Admin to configure them in Company setup.
+        </p>
+      )}
+
       <form onSubmit={confirm} className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">Leave request</h3>
@@ -175,9 +161,9 @@ export function SmartLeaveForm({
         <div className="grid gap-3 sm:grid-cols-3">
           <label className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
             Type
-            <select required value={form.type} onChange={set("type")} className={field}>
+            <select required disabled={leaveTypesLoading || !leaveTypes.length} value={form.type} onChange={set("type")} className={field}>
               <option value="">Select…</option>
-              {types.map((t) => (
+              {leaveTypes.map((t) => (
                 <option key={t.code} value={t.code}>
                   {t.name}
                 </option>
@@ -217,7 +203,7 @@ export function SmartLeaveForm({
 
         <button
           type="submit"
-          disabled={busy !== null || !!preview?.blocking.length}
+          disabled={busy !== null || !leaveTypes.length || !!preview?.blocking.length}
           className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40 sm:w-auto"
         >
           {busy === "submit" ? "Submitting…" : "Confirm and apply"}

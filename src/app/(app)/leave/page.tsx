@@ -55,7 +55,8 @@ function MyLeave() {
   return (
     <>
       <SmartLeaveForm
-        leaveTypes={balance.data?.balances.map((b) => ({ code: b.type, name: b.name }))}
+        leaveTypes={balance.data?.balances.map((b) => ({ code: b.type, name: b.name })) ?? []}
+        leaveTypesLoading={balance.loading && !balance.data}
         onSubmit={async (v) => {
           try {
             await api("/api/leave-requests", { body: v });
@@ -68,11 +69,19 @@ function MyLeave() {
         }}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {balance.data?.balances.map((b) => (
-          <Stat key={b.type} label={`${b.name} left`} value={b.remaining ?? "∞"} hint={b.quota != null ? `${b.usedApproved} used of ${b.quota}${b.pending ? ` · ${b.pending} pending` : ""}` : "unlimited"} />
-        ))}
-      </div>
+      {balance.error ? (
+        <ErrorState message={balance.error} onRetry={balance.reload} />
+      ) : balance.loading && !balance.data ? (
+        <Loading />
+      ) : balance.data?.balances.length ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {balance.data.balances.map((b) => (
+            <Stat key={b.type} label={`${b.name} left`} value={b.remaining ?? "∞"} hint={b.quota != null ? `${b.usedApproved} used of ${b.quota}${b.pending ? ` · ${b.pending} pending` : ""}` : "unlimited"} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState title="No leave types configured" hint="Ask an Admin to add leave types in Company setup." />
+      )}
 
       <Card title="My requests">
         {error && <Notice tone="error">{error}</Notice>}
