@@ -122,6 +122,7 @@ model Employee {
   corrections   AttendanceCorrection[]
   leaveRequests LeaveRequest[]
   payslips      Payslip[]
+  faceProfile   FaceProfile?
 
   @@index([departmentId])
   @@map("employees")
@@ -185,6 +186,8 @@ model Attendance {
   /// Camera check-in only: the result of the server's geofence check. No photo and no raw coordinates are stored.
   distanceMeters Int?
   gpsAccuracy    Int?
+  /// true when the face matched the employee's enrolled face; null when no face is enrolled
+  faceVerified   Boolean?
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
@@ -352,4 +355,17 @@ model ChatMessage {
 
   @@index([conversationId, id])
   @@map("chat_messages")
+}
+
+/// Camera check-in face matching (Section 5 extra bonus). One enrolled face per employee:
+/// a 128-number face descriptor computed in the browser, never a photo. Kept out of the Employee row
+/// so it can never leak through employee responses or audit before/after JSON. HR can delete it.
+model FaceProfile {
+  employeeId String   @id
+  descriptor Float[]
+  enrolledAt DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("face_profiles")
 }

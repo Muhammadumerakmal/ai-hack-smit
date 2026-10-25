@@ -1,6 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as checkInRoute from "@/app/api/attendance/check-in/route";
+import * as faceRoute from "@/app/api/attendance/face/route";
+import * as faceResetRoute from "@/app/api/employees/[id]/face/route";
+import * as employeeRoute from "@/app/api/employees/[id]/route";
 import * as todayRoute from "@/app/api/attendance/today/route";
 import * as dashboardRoute from "@/app/api/dashboard/route";
 import * as settingsRoute from "@/app/api/org/settings/route";
@@ -21,12 +24,12 @@ const NEAR = { method: "camera", lat: 24.861, lng: 67.0011, accuracy: 15, faces:
 describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
   const db = new PrismaClient();
   let ids: Record<string, string>;
-  let admin: Session, hr: Session, ali: Session, sara: Session, bilal: Session;
+  let admin: Session, hr: Session, ali: Session, sara: Session, bilal: Session, zara: Session;
 
   beforeAll(async () => {
     ids = (await seed(db)).employees;
-    [admin, hr, ali, sara, bilal] = await Promise.all(
-      ["admin@demo.test", "hr@demo.test", "ali@demo.test", "sara@demo.test", "bilal@demo.test"].map((e) => sessionFor(db, e)),
+    [admin, hr, ali, sara, bilal, zara] = await Promise.all(
+      ["admin@demo.test", "hr@demo.test", "ali@demo.test", "sara@demo.test", "bilal@demo.test", "zara@demo.test"].map((e) => sessionFor(db, e)),
     );
   });
   afterAll(() => db.$disconnect());
@@ -34,7 +37,7 @@ describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
   describe("camera check-in", () => {
     it("today tells the widget camera check-in is available, without the office coordinates", async () => {
       const r = await call(todayRoute.GET, { userId: sara.userId });
-      expect(r.body.camera).toEqual({ available: true, required: false, radiusMeters: 150, maxAccuracyMeters: 100 });
+      expect(r.body.camera).toEqual({ available: true, required: false, radiusMeters: 150, maxAccuracyMeters: 100, faceEnrolled: false });
       expect(JSON.stringify(r.body)).not.toContain("24.86");
     });
 
@@ -79,6 +82,58 @@ describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
     });
   });
 
+  describe("face matching (enrolled face)", () => {
+    const face = Array.from({ length: 128 }, (_, i) => Math.cos(i) / 4);
+    const nudge = (by: number) => face.map((x, i) => x + (i % 2 ? by : -by));
+
+    it("an employee enrols their face once; a second enrolment needs an HR reset", async () => {
+      expect((await call(faceRoute.GET, { userId: zara.userId })).body).toEqual({ enrolled: false, enrolledAt: null });
+      const r = await call(faceRoute.POST, { userId: zara.userId, body: { descriptor: face } });
+      expect(r.status).toBe(200);
+      expect(r.body.enrolled).toBe(true);
+      expect((await call(faceRoute.POST, { userId: zara.userId, body: { descriptor: nudge(0.3) } })).status).toBe(409);
+      expect((await call(faceRoute.POST, { userId: zara.userId, body: { descriptor: face.slice(1) } })).status).toBe(400);
+      expect((await call(todayRoute.GET, { userId: zara.userId })).body.camera.faceEnrolled).toBe(true);
+    });
+
+    it("check-in: a different face or no descriptor is refused (422); the enrolled face passes", async () => {
+      const other = await call(checkInRoute.POST, { userId: zara.userId, body: { ...NEAR, descriptor: nudge(0.06) } });
+      expect(other.status).toBe(422);
+      expect(other.body.message).toMatch(/does not match the face enrolled/);
+      expect((await call(checkInRoute.POST, { userId: zara.userId, body: NEAR })).status).toBe(422);
+
+      const ok = await call(checkInRoute.POST, { userId: zara.userId, body: { ...NEAR, descriptor: nudge(0.02) } });
+      expect(ok.status).toBe(200);
+      expect(ok.body.record).toMatchObject({ source: "camera", faceVerified: true });
+    });
+
+    it("with no enrolled face, camera check-in still works but is not face-verified", async () => {
+      const r = await call(checkInRoute.POST, { userId: bilal.userId, body: { ...NEAR, descriptor: face } });
+      expect(r.status).toBe(200);
+      expect(r.body.record.faceVerified).toBeNull();
+    });
+
+    it("the descriptor never appears in Employee 360 or the audit log", async () => {
+      const e360 = await call(h(employeeRoute.GET), { userId: hr.userId, params: { id: ids.E005 } });
+      expect(e360.body.faceCheckIn.enrolled).toBe(true);
+      expect(JSON.stringify(e360.body)).not.toContain("descriptor");
+      const logs = await db.auditLog.findMany({ where: { action: { in: ["enroll_face", "reset_face"] } } });
+      expect(logs.map((l) => l.action)).toContain("enroll_face");
+      expect(JSON.stringify(logs)).not.toContain(String(face[3]));
+    });
+
+    it("HR resets the face (audited, employee notified); the employee and Admin cannot", async () => {
+      const del = (userId: string) => call(h(faceResetRoute.DELETE), { userId, method: "DELETE", params: { id: ids.E005 } });
+      expect((await del(zara.userId)).status).toBe(403);
+      expect((await del(admin.userId)).status).toBe(403);
+      expect((await del(hr.userId)).status).toBe(200);
+      expect((await call(faceRoute.GET, { userId: zara.userId })).body.enrolled).toBe(false);
+      expect(await db.auditLog.count({ where: { action: "reset_face", entityId: ids.E005 } })).toBe(1);
+      expect(await db.notification.count({ where: { userId: zara.userId, title: "Face check-in reset" } })).toBe(1);
+      expect((await del(hr.userId)).status).toBe(404);
+    });
+  });
+
   describe("late penalty in payroll", () => {
     // A past month with no seeded attendance: Ali gets exactly 7 late days and is absent on the rest.
     const month = addDays(monthRange(currentMonth()).start, -45).slice(0, 7);
@@ -109,6 +164,21 @@ describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
       expect(on).toMatchObject({ lateDays: 7, latePenaltyDays: 1, paidDays: 6 });
       expect(on.deductions - off.deductions).toBeCloseTo(on.gross / on.workingDays, 1);
       await db.companySettings.update({ where: { id: 1 }, data: { latePenaltyEnabled: false } });
+    });
+
+    it("Section 7 payroll cost by month: the Admin dashboard and KPI JSON list each run's gross and net", async () => {
+      const r = await call(dashboardRoute.GET, { userId: admin.userId });
+      const row = r.body.admin.payrollTrend.find((x: { month: string }) => x.month === month);
+      expect(row).toMatchObject({ month, status: "DRAFT", employees: 5 });
+      const slips = await db.payslip.findMany({ where: { run: { month } } });
+      expect(row.totalGross).toBeCloseTo(slips.reduce((n, s) => n + Number(s.gross), 0), 2);
+      expect(row.totalNet).toBeCloseTo(slips.reduce((n, s) => n + Number(s.net), 0), 2);
+      expect(r.body.kpis.payrollByMonth).toContainEqual({ month, status: "DRAFT", totalGross: row.totalGross, totalNet: row.totalNet });
+      // The department filter applies: only the 2 Sales payslips.
+      const sales = await call(dashboardRoute.GET, { userId: admin.userId, url: "/api/dashboard?department=Sales" });
+      expect(sales.body.admin.payrollTrend.find((x: { month: string }) => x.month === month).employees).toBe(2);
+      // The HR dashboard has no Admin payroll section.
+      expect((await call(dashboardRoute.GET, { userId: hr.userId })).body.admin).toBeUndefined();
     });
   });
 

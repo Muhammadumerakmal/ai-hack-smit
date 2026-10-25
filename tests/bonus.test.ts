@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, weekdayOf } from "@/lib/dates";
+import { descriptorSchema, faceDistance, FACE_MATCH_THRESHOLD, isSameFace } from "@/lib/face";
 import { haversineMeters } from "@/lib/geo";
 import type { DayRow, DayStatus } from "@/server/services/attendance.service";
 import { checkInSchema, evaluateCameraCheckIn } from "@/server/services/attendance.service";
@@ -58,6 +59,30 @@ describe("geofence (Haversine)", () => {
     expect(checkInSchema.parse({})).toEqual({ method: "web" });
     expect(checkInSchema.safeParse({ method: "camera", lat: 24.8 }).success).toBe(false);
     expect(checkInSchema.safeParse(camera()).success).toBe(true);
+  });
+});
+
+describe("face matching (descriptor distance)", () => {
+  const a = Array.from({ length: 128 }, (_, i) => Math.sin(i) / 4);
+  const nudge = (d: number[], by: number) => d.map((x, i) => x + (i % 2 ? by : -by));
+
+  it("measures Euclidean distance between descriptors", () => {
+    expect(faceDistance(a, a)).toBe(0);
+    expect(faceDistance(a, nudge(a, 0.01))).toBeCloseTo(Math.sqrt(128) * 0.01, 6);
+    expect(faceDistance(a, a.slice(1))).toBe(Infinity);
+  });
+
+  it("matches the same face within the threshold and refuses a different one", () => {
+    expect(FACE_MATCH_THRESHOLD).toBe(0.55);
+    expect(isSameFace(a, nudge(a, 0.02))).toBe(true); // about 0.23
+    expect(isSameFace(a, nudge(a, 0.06))).toBe(false); // about 0.68
+  });
+
+  it("accepts only 128 finite numbers", () => {
+    expect(descriptorSchema.safeParse(a).success).toBe(true);
+    expect(descriptorSchema.safeParse(a.slice(1)).success).toBe(false);
+    expect(descriptorSchema.safeParse([...a.slice(1), Number.NaN]).success).toBe(false);
+    expect(descriptorSchema.safeParse([...a.slice(1), 99]).success).toBe(false);
   });
 });
 

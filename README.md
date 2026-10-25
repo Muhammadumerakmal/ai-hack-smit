@@ -2,6 +2,8 @@
 
 AI-assisted Human Capital Management for Admin, HR and Employees (Saylani Hackathon, 24 Oct 2026).
 
+**Live app:** _add the hosted URL here before submitting_ · **Repository:** https://github.com/Muhammadumerakmal/ai-hack-smit
+
 **Stack:** Next.js 16 (App Router, full stack: REST API + UI) · PostgreSQL + Prisma · OpenAI (Agents SDK `@openai/agents` with tool calling) · JWT (httpOnly cookie) + bcrypt · Tailwind · Vitest
 
 ## Run it locally (about 5 minutes)
@@ -20,7 +22,7 @@ npm run dev                     # http://localhost:3000
 
 **Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
 
-**Tests:** `npm test` runs 243 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
+**Tests:** `npm test` runs 252 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
 
 ## What is done
 
@@ -32,19 +34,21 @@ npm run dev                     # http://localhost:3000
 | M4 | Attendance: web check-in/out (server time, 409 on second check-in), late / half day / absent / missing checkout, calendar, daily board, correction request + HR approval | ✅ |
 | M5 | Leave: apply, cancel, balance, working days only, overlap / balance checks (422), HR approval inbox with comments | ✅ |
 | M6 | Payroll: monthly draft (HR), finalize + lock (Admin), gross 1.5 × basic, per-day deductions, proration, tax slab, payslip PDF | ✅ |
-| M7 | Dashboards: Admin / HR / Employee, KPIs, trends, insight lists, date + department filters, all computed on the server | ✅ |
+| M7 | Dashboards: Admin / HR / Employee, KPIs, trends, insight lists, payroll cost by month, date + department filters, all computed on the server | ✅ |
 | M8 | AI assistant: chat with 7 role-scoped tools, dashboard summary, smart leave, policy Q&A, guardrails (below) | ✅ |
 | M9 | Announcements, in-app notifications, append-only audit log with before/after JSON | ✅ |
-| Bonus | Camera attendance on the web: face detection + location, with a blink liveness check | ✅ |
+| Bonus | Camera attendance on the web: face detection + location, a blink liveness check, and matching to the employee's enrolled face | ✅ |
 | Bonus | Attrition risk score and absence anomaly flags (dashboard, AI summary, AI tool) | ✅ |
 | Bonus | Late penalty rule (3 lates = 0.5 day), Admin switch, shown on payroll and the payslip PDF | ✅ |
 | Bonus | AI understands Roman Urdu · dark mode (follows the system setting) · PWA (installable, offline page) | ✅ |
 
-**Not done:** a native mobile app (camera check-in runs in the mobile or laptop browser instead) and face *matching* against an enrolled face (the camera checks for exactly one live face, not whose face it is).
+**Not done:** a native mobile app (optional in Section 5). Camera check-in runs in the mobile or laptop browser instead, and the app can be installed on a phone as a PWA.
 
 ## Bonus features
 
-**Camera check-in (Section 5).** The *Use camera* button on the dashboard or attendance page opens the front camera. MediaPipe's face landmarker (`@mediapipe/tasks-vision`, runs on the device) needs **exactly one face** and **a blink**. The browser sends `{ method: "camera", lat, lng, accuracy, faces, liveness }` to `POST /api/attendance/check-in`, and the **server** decides. It rejects with 422 if there is no face or more than one, no blink, GPS accuracy worse than 100 m, or a Haversine distance to the office beyond the radius. The time is stamped by the server as usual. Only the distance and GPS accuracy are stored (`source = camera`): no photo and no coordinates. A failed check points to an HR attendance correction. Admin sets the office pin (with a *Use my current location* button) and the radius in Company setup, and can switch on **Require camera check-in**, which turns off the plain web button. The camera and GPS need HTTPS (or localhost). The face model loads from the jsDelivr / Google CDNs on first use.
+**Camera check-in (Section 5).** The *Use camera* button on the dashboard or attendance page opens the front camera. MediaPipe's face landmarker (`@mediapipe/tasks-vision`, runs on the device) needs **exactly one face** and **a blink**. The browser sends `{ method: "camera", lat, lng, accuracy, faces, liveness }` to `POST /api/attendance/check-in`, and the **server** decides. It rejects with 422 if there is no face or more than one, no blink, GPS accuracy worse than 100 m, or a Haversine distance to the office beyond the radius. The time is stamped by the server as usual. Only the distance and GPS accuracy are stored (`source = camera`): no photo and no coordinates. A failed check points to an HR attendance correction.
+
+**Face matching (extra bonus).** Each employee enrols their face once from **My profile**. face-api.js (`@vladmandic/face-api`, on the device) turns it into a 128-number face descriptor, which is stored in its own `face_profiles` table and never as a photo. From then on, every camera check-in sends a fresh descriptor, and the **server** refuses it (422) unless the Euclidean distance to the enrolled one is 0.55 or less. Only the result (`faceVerified`) is kept on the attendance row. The descriptor never appears in any API response or in the audit log. Changing an enrolled face needs HR to **Reset face** on the employee's profile (audited, and the employee is notified). Admin sets the office pin (with a *Use my current location* button) and the radius in Company setup, and can switch on **Require camera check-in**, which turns off the plain web button. The camera and GPS need HTTPS (or localhost). The face model loads from the jsDelivr / Google CDNs on first use.
 
 **Attrition risk score.** A rule-based score out of 100 for each active employee over the last 90 days: absenteeism 30 · lateness 20 · absence rising in the last 30 days 20 · unpaid leave 15 · tenure under a year 15. High ≥ 60, medium ≥ 35. Every score lists its reasons. It needs 5 working days of history.
 

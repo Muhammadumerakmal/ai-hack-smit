@@ -1,7 +1,7 @@
 # Bonus features (Section 5 and Section 8 bonus list)
 
 - **Date:** 2026-10-25
-- **Commits:** uncommitted
+- **Commits:** 47deff6
 - **Tests:** npm test: 243 passed (211 before + 32 new in `tests/bonus.test.ts`, `tests/bonus.db.test.ts`). Typecheck, lint and `next build` clean.
 
 ## Changes

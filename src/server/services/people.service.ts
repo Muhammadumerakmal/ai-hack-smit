@@ -212,6 +212,8 @@ export async function getEmployee360(actor: Session, id: string) {
       user: { select: { isActive: true, role: true, email: true } },
       leaveRequests: { include: { leaveType: true }, orderBy: { startDate: "desc" }, take: 10 },
       payslips: { include: { run: true }, orderBy: { run: { month: "desc" } }, take: 12 },
+      // Only whether a face is enrolled; the descriptor itself never leaves the attendance service.
+      faceProfile: { select: { enrolledAt: true } },
     },
   });
   if (!e) throw new HttpError(404, "Employee not found", "not_found");
@@ -242,6 +244,7 @@ export async function getEmployee360(actor: Session, id: string) {
       loginActive: e.user?.isActive ?? false,
     },
     salary: salaryStructure(Number(e.basicSalary)),
+    faceCheckIn: { enrolled: !!e.faceProfile, enrolledAt: e.faceProfile?.enrolledAt.toISOString() ?? null },
     attendance,
     leaveBalance: balance.balances,
     leaves: e.leaveRequests.map((l) => ({

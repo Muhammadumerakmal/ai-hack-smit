@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Avatar, FormSection, Meter, PIcon, Panel, SectionHeading, Skeleton, Surface, ToolButton, cx } from "@/components/people/kit";
 import { Button, EmptyState, ErrorState, Field, Input, Notice, Select, StatusBadge, Tabs } from "@/components/ui";
+import { CameraCheckIn } from "@/components/attendance/CameraCheckIn";
 import { api, fmtDate, money, useApi } from "@/lib/client";
 
 export interface Employee360Data {
@@ -25,6 +26,7 @@ export interface Employee360Data {
     loginActive: boolean;
   };
   salary: { basic: number; hra: number; medical: number; gross: number };
+  faceCheckIn: { enrolled: boolean; enrolledAt: string | null };
   attendance: {
     counts: { present: number; late: number; half_day: number; missing_checkout: number; absent: number; on_leave: number };
     attendanceRatePct: number | null;
@@ -107,7 +109,7 @@ export function Employee360({ id, mode }: { id: string; mode: "hr" | "self" | "v
             { id: "payroll", label: "Payroll" },
           ]}
         />
-        {tab === "overview" && <Overview data={data} />}
+        {tab === "overview" && <Overview data={data} mode={mode} onChanged={reload} />}
         {tab === "attendance" && <AttendanceTab data={data} />}
         {tab === "leave" && <LeaveTab data={data} />}
         {tab === "payroll" && <PayrollTab data={data} />}
@@ -137,7 +139,7 @@ function Contact({ icon, value, href, empty = "—" }: { icon: string; value: st
 
 // ---------- Tabs ----------
 
-function Overview({ data }: { data: Employee360Data }) {
+function Overview({ data, mode, onChanged }: { data: Employee360Data; mode: "hr" | "self" | "view"; onChanged: () => void }) {
   const p = data.profile;
   const a = data.attendance;
   return (
@@ -172,7 +174,104 @@ function Overview({ data }: { data: Employee360Data }) {
         <SectionHeading title="Leave remaining" icon="leaf" />
         <LeaveMeters balances={data.leaveBalance} compact />
       </Surface>
+
+      <FaceCard face={data.faceCheckIn} name={data.profile.fullName} employeeId={data.profile.id} mode={mode} onChanged={onChanged} />
     </div>
+  );
+}
+
+/** Camera check-in face matching (extra bonus): the employee enrols once; HR can reset it. Admin only sees the status. */
+function FaceCard({
+  face,
+  name,
+  employeeId,
+  mode,
+  onChanged,
+}: {
+  face: Employee360Data["faceCheckIn"];
+  name: string;
+  employeeId: string;
+  mode: "hr" | "self" | "view";
+  onChanged: () => void;
+}) {
+  const [enrolling, setEnrolling] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  async function reset() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api(`/api/employees/${employeeId}/face`, { method: "DELETE" });
+      setConfirmReset(false);
+      setMsg({ tone: "success", text: `${name}'s face was removed. They can enrol again from their profile.` });
+      onChanged();
+    } catch (e) {
+      setMsg({ tone: "error", text: (e as Error).message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const who = mode === "self" ? "your" : `${name.split(" ")[0]}'s`;
+  return (
+    <Surface className="p-5 lg:col-span-3">
+      <SectionHeading
+        title="Face check-in"
+        icon="shield"
+        hint={`Camera check-ins are matched to ${who} enrolled face. Stored as a face descriptor (128 numbers), never a photo.`}
+      />
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm">
+          {face.enrolled ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-teal-500" aria-hidden />
+              Face enrolled on {fmtDate(face.enrolledAt)}
+              {mode === "self" && <span className="text-zinc-500">· ask HR to reset it if you need to enrol again</span>}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
+              <span className="h-2 w-2 rounded-full bg-zinc-300 dark:bg-zinc-600" aria-hidden />
+              No face enrolled{mode === "self" ? ". Camera check-ins check for a live face but cannot tell it is you." : "."}
+            </span>
+          )}
+        </p>
+        {mode === "self" && !face.enrolled && <Button onClick={() => setEnrolling(true)}>Enrol my face</Button>}
+        {mode === "hr" && face.enrolled && !confirmReset && (
+          <Button variant="secondary" onClick={() => setConfirmReset(true)}>
+            Reset face
+          </Button>
+        )}
+        {mode === "hr" && confirmReset && (
+          <span className="flex items-center gap-2">
+            <span className="text-sm text-zinc-600 dark:text-zinc-300">Remove the enrolled face?</span>
+            <Button variant="ghost" onClick={() => setConfirmReset(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={busy} onClick={reset}>
+              Reset
+            </Button>
+          </span>
+        )}
+      </div>
+      {msg && (
+        <div className="mt-3">
+          <Notice tone={msg.tone}>{msg.text}</Notice>
+        </div>
+      )}
+      {enrolling && (
+        <CameraCheckIn
+          mode="enroll"
+          onClose={() => setEnrolling(false)}
+          onDone={() => {
+            setEnrolling(false);
+            setMsg({ tone: "success", text: "Your face is enrolled. Your next camera check-in will be matched to it." });
+            onChanged();
+          }}
+        />
+      )}
+    </Surface>
   );
 }
 

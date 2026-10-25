@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { addClock, COMPANY_TZ, fmtDuration, minutesBetween } from "@/components/ops/format";
+import Link from "next/link";
 import { OpsIcon } from "@/components/ops/icons";
 import { cx, Skeleton, StatusPill } from "@/components/ops/primitives";
 import { Button, Notice } from "@/components/ui";
@@ -14,7 +15,7 @@ interface Today {
   officeStart: string;
   graceMinutes: number;
   halfDayHours?: number;
-  camera?: { available: boolean; required: boolean; radiusMeters: number; maxAccuracyMeters: number };
+  camera?: { available: boolean; required: boolean; radiusMeters: number; maxAccuracyMeters: number; faceEnrolled?: boolean };
   record: { checkIn: string; checkOut: string | null; status: string; source?: string; distanceMeters?: number | null } | null;
 }
 
@@ -181,6 +182,15 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
                   Check out
                 </Button>
               )}
+              {!rec && cam?.available && !cam.faceEnrolled && (
+                <p className="mt-2 text-center text-xs text-zinc-500">
+                  Tip:{" "}
+                  <Link href="/profile" className="font-medium text-teal-700 hover:underline dark:text-teal-300">
+                    enrol your face
+                  </Link>{" "}
+                  so camera check-ins are matched to you.
+                </p>
+              )}
               {done && (
                 <p className="flex h-11 items-center justify-center gap-2 rounded-lg bg-teal-50 text-sm font-medium text-teal-800 dark:bg-teal-500/10 dark:text-teal-300">
                   <OpsIcon name="check" className="h-4 w-4" /> All done for today
@@ -191,7 +201,13 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
         ) : null}
       </div>
       {cameraOpen && cam && (
-        <CameraCheckIn maxAccuracyMeters={cam.maxAccuracyMeters} radiusMeters={cam.radiusMeters} onClose={() => setCameraOpen(false)} onDone={cameraDone} />
+        <CameraCheckIn
+          faceEnrolled={!!cam.faceEnrolled}
+          maxAccuracyMeters={cam.maxAccuracyMeters}
+          radiusMeters={cam.radiusMeters}
+          onClose={() => setCameraOpen(false)}
+          onDone={cameraDone}
+        />
       )}
     </section>
   );

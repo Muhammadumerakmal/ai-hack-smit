@@ -50,6 +50,7 @@ interface CompanyDashboard {
           byDepartment: { name: string; gross: number; net: number; averageGross: number }[];
           byDesignation: { name: string; averageGross: number }[];
         };
+    payrollTrend: { month: string; status: string; employees: number; totalGross: number; totalNet: number }[];
     workforce: { gender: { label: string; count: number }[]; tenure: { label: string; count: number }[] };
     auditFeed: { id: string; createdAt: string; actorName: string; action: string; entity: string }[];
   };
@@ -474,6 +475,29 @@ function AdminCharts({ d }: { d: CompanyDashboard }) {
   const p = a.payrollCost;
   return (
     <div className="grid gap-4 md:grid-cols-2">
+      <ChartPanel
+        className="md:col-span-2"
+        title="Payroll cost by month"
+        subtitle="Gross pay per monthly run, last 12 months"
+        table={
+          a.payrollTrend.length
+            ? { head: ["Month", "Status", "Employees", "Gross", "Net"], rows: a.payrollTrend.map((r) => [monthLabel(r.month), r.status.toLowerCase(), r.employees, money(r.totalGross), money(r.totalNet)]) }
+            : null
+        }
+      >
+        {a.payrollTrend.length ? (
+          <BarChart
+            items={a.payrollTrend.map((r) => ({
+              label: monthLabel(r.month),
+              value: r.totalGross,
+              note: `Net ${money(r.totalNet)}${r.status === "DRAFT" ? " · draft" : ""}`,
+            }))}
+            format={money}
+          />
+        ) : (
+          <EmptyState title="No payroll runs yet" hint="Each month appears here once HR creates its payroll draft." />
+        )}
+      </ChartPanel>
       <ChartPanel
         title="Payroll cost by department"
         subtitle={p.found ? `Gross pay, ${monthLabel(p.month)}` : "Gross pay"}

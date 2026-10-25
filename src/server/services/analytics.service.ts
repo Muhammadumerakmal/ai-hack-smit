@@ -98,10 +98,11 @@ async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: s
 
   if (actor.role !== "ADMIN") return kpis;
 
-  // Admin dashboard extras: attrition (YTD) and payroll cost.
-  const [attrition, payroll] = await Promise.all([
+  // Admin dashboard extras: attrition (YTD), payroll cost and payroll cost by month.
+  const [attrition, payroll, payrollByMonth] = await Promise.all([
     getAttrition({ start: `${f.end.slice(0, 4)}-01-01`, end: f.end, departmentId }),
     getPayrollCost(f.end, departmentId),
+    getPayrollTrend(f.end, departmentId),
   ]);
   return {
     ...kpis,
@@ -109,6 +110,7 @@ async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: s
     payroll: payroll.found
       ? { month: payroll.month, status: payroll.status, totalGross: payroll.totalGross, totalNet: payroll.totalNet, averageGross: payroll.averageGross }
       : { message: "No payroll run yet" },
+    payrollByMonth: payrollByMonth.map((r) => ({ month: r.month, status: r.status, totalGross: r.totalGross, totalNet: r.totalNet })),
   };
 }
 
@@ -221,6 +223,31 @@ export async function getPayrollCost(end: string, departmentId?: string) {
   };
 }
 
+/**
+ * Section 7 "payroll cost by month": gross and net per payroll run for the 12 months up to the period end,
+ * oldest first, for the department filter. Draft months are marked (their numbers can still change).
+ */
+export async function getPayrollTrend(end: string, departmentId?: string, months = 12) {
+  const last = end.slice(0, 7);
+  const [y, m] = last.split("-").map(Number);
+  const first = new Date(Date.UTC(y, m - months, 1)).toISOString().slice(0, 7);
+  const slips = await db.payslip.findMany({
+    where: { run: { month: { gte: first, lte: last } }, ...(departmentId && { employee: { departmentId } }) },
+    select: { gross: true, net: true, run: { select: { month: true, status: true } } },
+  });
+  const byMonth = new Map<string, { month: string; status: string; employees: number; totalGross: number; totalNet: number }>();
+  for (const s of slips) {
+    const row = byMonth.get(s.run.month) ?? { month: s.run.month, status: s.run.status, employees: 0, totalGross: 0, totalNet: 0 };
+    row.employees++;
+    row.totalGross += Number(s.gross);
+    row.totalNet += Number(s.net);
+    byMonth.set(s.run.month, row);
+  }
+  return [...byMonth.values()]
+    .map((r) => ({ ...r, totalGross: money(r.totalGross), totalNet: money(r.totalNet) }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
 /** Gender split and tenure buckets of the current headcount (Admin dashboard). */
 export async function getWorkforceMix(asOf: string, departmentId?: string) {
   const staff = await db.employee.findMany({
@@ -288,8 +315,13 @@ export async function getDashboard(actor: Session, f: DashboardFilters) {
   };
   if (actor.role !== "ADMIN") return base;
 
-  const [payrollCost, workforce, auditFeed] = await Promise.all([getPayrollCost(f.end, departmentId), getWorkforceMix(f.end, departmentId), latestAudit(10)]);
-  return { ...base, admin: { payrollCost, workforce, auditFeed } };
+  const [payrollCost, payrollTrend, workforce, auditFeed] = await Promise.all([
+    getPayrollCost(f.end, departmentId),
+    getPayrollTrend(f.end, departmentId),
+    getWorkforceMix(f.end, departmentId),
+    latestAudit(10),
+  ]);
+  return { ...base, admin: { payrollCost, payrollTrend, workforce, auditFeed } };
 }
 
 /** Employee dashboard: hours this week vs 40 h, late count this month, leave balance, last payslip, announcements. */

@@ -6,10 +6,13 @@ import { OpsIcon, type OpsIconName } from "@/components/ops/icons";
 import { cx } from "@/components/ops/primitives";
 import { Button, Modal, Notice } from "@/components/ui";
 import { api } from "@/lib/client";
+import { describeFaceSteady, loadFaceApi } from "./faceRecognition";
 
 // Camera check-in (Section 5, bonus). Everything visual happens on this device: MediaPipe's face landmarker
 // counts faces and watches for a blink in the live preview. Only the face count, the blink result and the
 // GPS fix are sent; the server measures the distance to the office and decides. No photo leaves the browser.
+// With an enrolled face (extra bonus), a 128-number face descriptor is sent too and the server matches it.
+// mode="enroll" reuses the same camera + blink check to enrol that descriptor once (no location needed).
 
 const MP_VERSION = "0.10.21"; // keep in step with @mediapipe/tasks-vision in package.json
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VERSION}/wasm`;
@@ -55,16 +58,23 @@ async function createLandmarker(): Promise<FaceLandmarker> {
 }
 
 export function CameraCheckIn({
-  maxAccuracyMeters,
-  radiusMeters,
+  mode = "checkin",
+  faceEnrolled = false,
+  maxAccuracyMeters = 100,
+  radiusMeters = 0,
   onClose,
   onDone,
 }: {
-  maxAccuracyMeters: number;
-  radiusMeters: number;
+  mode?: "checkin" | "enroll";
+  /** check-in only: an enrolled face means a descriptor is computed and matched on the server */
+  faceEnrolled?: boolean;
+  maxAccuracyMeters?: number;
+  radiusMeters?: number;
   onClose: () => void;
   onDone: (distanceMeters: number | null) => void;
 }) {
+  const enrolling = mode === "enroll";
+  const needsDescriptor = enrolling || faceEnrolled;
   const videoRef = useRef<HTMLVideoElement>(null);
   // The detection loop runs every frame; it writes here and copies to state a few times a second.
   const live = useRef({ faces: 0, sawOpen: false, blinked: false });
@@ -84,7 +94,12 @@ export function CameraCheckIn({
     let raf = 0;
     let landmarker: FaceLandmarker | null = null;
 
-    if ("geolocation" in navigator) {
+    // Fetch the recognition model while the camera starts, so the final click is quick.
+    if (needsDescriptor) loadFaceApi().catch(() => {});
+
+    if (enrolling) {
+      // Enrolment does not need a location.
+    } else if ("geolocation" in navigator) {
       watchId = navigator.geolocation.watchPosition(
         (p) => {
           setFix({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy });
@@ -155,19 +170,37 @@ export function CameraCheckIn({
       if (watchId != null) navigator.geolocation.clearWatch(watchId);
       landmarker?.close();
     };
-  }, []);
+  }, [enrolling, needsDescriptor]);
 
-  const accuracyOk = !!fix && fix.accuracy <= maxAccuracyMeters;
+  const accuracyOk = enrolling || (!!fix && fix.accuracy <= maxAccuracyMeters);
   const ready = phase === "live" && faces === 1 && blinked && accuracyOk;
 
+  async function readDescriptor(): Promise<number[]> {
+    const video = videoRef.current;
+    let d: number[] | null = null;
+    try {
+      d = video ? await describeFaceSteady(video) : null;
+    } catch {
+      throw new Error("Face matching could not be loaded. Check the internet connection and try again.");
+    }
+    if (!d) throw new Error("Your face could not be read clearly. Face the camera in good light, hold still and try again.");
+    return d;
+  }
+
   async function submit() {
-    if (!fix) return;
     setBusy(true);
     setSubmitError(null);
     try {
+      if (enrolling) {
+        await api("/api/attendance/face", { method: "POST", body: { descriptor: await readDescriptor() } });
+        onDone(null);
+        return;
+      }
+      if (!fix) return;
+      const descriptor = faceEnrolled ? await readDescriptor() : undefined;
       const r = await api<{ record: { distanceMeters: number | null } }>("/api/attendance/check-in", {
         method: "POST",
-        body: { method: "camera", lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, faces: live.current.faces, liveness: live.current.blinked },
+        body: { method: "camera", lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy, faces: live.current.faces, liveness: live.current.blinked, descriptor },
       });
       onDone(r.record.distanceMeters);
     } catch (e) {
@@ -180,7 +213,7 @@ export function CameraCheckIn({
   return (
     <Modal
       open
-      title="Camera check-in"
+      title={enrolling ? "Enrol your face" : "Camera check-in"}
       onClose={onClose}
       footer={
         <>
@@ -189,7 +222,7 @@ export function CameraCheckIn({
           </Button>
           <Button onClick={submit} loading={busy} disabled={!ready}>
             {!busy && <OpsIcon name="camera" className="h-4 w-4" />}
-            Check in
+            {enrolling ? "Enrol my face" : "Check in"}
           </Button>
         </>
       }
@@ -224,26 +257,43 @@ export function CameraCheckIn({
             label={phase !== "live" ? "Face" : faces === 0 ? "No face found: look at the camera" : faces > 1 ? "More than one face: only you should be in the frame" : "One face found"}
           />
           <Check icon="check" ok={blinked} label={blinked ? "Blink detected" : "Blink once to show it's really you"} />
-          <Check
-            icon="pin"
-            ok={accuracyOk}
-            label={
-              geoError ??
-              (!fix
-                ? "Finding your location…"
-                : accuracyOk
-                  ? `Location found (±${Math.round(fix.accuracy)} m)`
-                  : `Location too imprecise (±${Math.round(fix.accuracy)} m, needs ${maxAccuracyMeters} m or better). Try near a window.`)
-            }
-          />
+          {!enrolling && (
+            <Check
+              icon="pin"
+              ok={accuracyOk}
+              label={
+                geoError ??
+                (!fix
+                  ? "Finding your location…"
+                  : accuracyOk
+                    ? `Location found (±${Math.round(fix.accuracy)} m)`
+                    : `Location too imprecise (±${Math.round(fix.accuracy)} m, needs ${maxAccuracyMeters} m or better). Try near a window.`)
+              }
+            />
+          )}
         </ul>
+
+        {!enrolling && faceEnrolled && (
+          <p className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 text-[13px] text-sky-900 dark:bg-sky-500/10 dark:text-sky-200">
+            <OpsIcon name="info" className="h-4 w-4 shrink-0" />
+            When you press Check in, your face is matched against the face you enrolled.
+          </p>
+        )}
 
         {submitError && <Notice tone="error">{submitError}</Notice>}
 
-        <p className="text-xs leading-relaxed text-zinc-500">
-          The picture stays on this device. Only the face count, the blink result and your location are sent. The server checks that you are within{" "}
-          {radiusMeters} m of the office and stores the distance, not a photo. If it fails, ask HR for an attendance correction.
-        </p>
+        {enrolling ? (
+          <p className="text-xs leading-relaxed text-zinc-500">
+            The picture stays on this device. What is saved is a face descriptor: 128 numbers that describe your face, which cannot be turned back
+            into a photo. It is only used to match you at camera check-in, and HR can delete it at any time.
+          </p>
+        ) : (
+          <p className="text-xs leading-relaxed text-zinc-500">
+            The picture stays on this device. Only the face count, the blink result{faceEnrolled ? ", a face descriptor (128 numbers, not a photo)" : ""} and your
+            location are sent. The server checks that you are within {radiusMeters} m of the office and stores the distance, not a photo. If it fails, ask HR
+            for an attendance correction.
+          </p>
+        )}
       </div>
     </Modal>
   );

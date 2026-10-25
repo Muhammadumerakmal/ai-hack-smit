@@ -18,6 +18,7 @@ import {
   zonedDateTime,
 } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
+import { descriptorSchema, faceDistance, FACE_MATCH_THRESHOLD } from "@/lib/face";
 import { haversineMeters, MAX_GPS_ACCURACY_M } from "@/lib/geo";
 import { assertRole, scopeEmployeeId, type Session } from "@/lib/session";
 import { getHolidays, getHolidaySet, getSettings, resolveDepartmentId, type Settings } from "./settings.service";
@@ -274,6 +275,7 @@ const recordOut = (r: {
   status: AttendanceStatus;
   source: string;
   distanceMeters?: number | null;
+  faceVerified?: boolean | null;
 }) => ({
   date: toIso(r.date),
   checkIn: r.checkIn.toISOString(),
@@ -281,6 +283,7 @@ const recordOut = (r: {
   status: r.status,
   source: r.source,
   distanceMeters: r.distanceMeters ?? null,
+  faceVerified: r.faceVerified ?? null,
 });
 
 // ---------- Camera check-in (Section 5, bonus) ----------
@@ -301,6 +304,8 @@ export const checkInSchema = z.preprocess(defaultWeb, z.discriminatedUnion("meth
     faces: z.number().int().min(0).max(50),
     /** the user blinked in front of the camera (simple liveness check) */
     liveness: z.boolean(),
+    /** face descriptor of the person in front of the camera; required once a face is enrolled */
+    descriptor: descriptorSchema.optional(),
   }),
 ]));
 export type CheckInInput = z.infer<typeof checkInSchema>;
@@ -332,6 +337,60 @@ export function evaluateCameraCheckIn(
   return { distanceMeters, gpsAccuracy };
 }
 
+/**
+ * Extra bonus: when the employee has an enrolled face, the camera check-in must carry a descriptor that matches it.
+ * Returns true on a match, null when nothing is enrolled (the face/blink/location checks still apply).
+ */
+async function verifyFace(employeeId: string, descriptor: number[] | undefined): Promise<true | null> {
+  const profile = await db.faceProfile.findUnique({ where: { employeeId }, select: { descriptor: true } });
+  if (!profile) return null;
+  if (!descriptor) throw cameraRejected("Your face could not be read for matching. Hold still, face the camera and try again.");
+  if (faceDistance(profile.descriptor, descriptor) > FACE_MATCH_THRESHOLD) {
+    throw cameraRejected("This face does not match the face enrolled for your account.");
+  }
+  return true;
+}
+
+// ---------- Face enrolment (extra bonus): self-service once, HR can reset ----------
+
+export const enrollFaceSchema = z.object({ descriptor: descriptorSchema });
+
+export async function getFaceStatus(actor: Session) {
+  const employeeId = requireEmployee(actor);
+  const p = await db.faceProfile.findUnique({ where: { employeeId }, select: { enrolledAt: true } });
+  return { enrolled: !!p, enrolledAt: p?.enrolledAt.toISOString() ?? null };
+}
+
+/** The employee enrols their own face. Changing it later needs HR to reset it first, so nobody can swap faces quietly. */
+export async function enrollFace(actor: Session, input: z.infer<typeof enrollFaceSchema>) {
+  const employeeId = requireEmployee(actor);
+  return db.$transaction(async (tx) => {
+    if (await tx.faceProfile.findUnique({ where: { employeeId }, select: { employeeId: true } })) {
+      throw new HttpError(409, "A face is already enrolled. Ask HR to reset it if you need to enrol again.", "conflict");
+    }
+    const p = await tx.faceProfile.create({ data: { employeeId, descriptor: input.descriptor } });
+    // The descriptor itself is biometric data and never goes into the audit log.
+    await audit(actor, "enroll_face", "employee", employeeId, { after: { enrolledAt: p.enrolledAt } }, tx);
+    return { enrolled: true, enrolledAt: p.enrolledAt.toISOString() };
+  });
+}
+
+/** HR deletes an employee's enrolled face (new phone, wrong person enrolled, or on request). */
+export async function resetFace(actor: Session, employeeId: string) {
+  assertRole(actor, "HR");
+  return db.$transaction(async (tx) => {
+    const p = await tx.faceProfile.findUnique({ where: { employeeId }, select: { enrolledAt: true } });
+    if (!p) throw new HttpError(404, "No face is enrolled for this employee.", "not_found");
+    await tx.faceProfile.delete({ where: { employeeId } });
+    await audit(actor, "reset_face", "employee", employeeId, { before: { enrolledAt: p.enrolledAt } }, tx);
+    const emp = await tx.employee.findUnique({ where: { id: employeeId }, select: { userId: true } });
+    if (emp?.userId) {
+      await notify([emp.userId], { title: "Face check-in reset", body: "HR removed your enrolled face. Enrol again from your profile.", link: "/profile" }, tx);
+    }
+    return { enrolled: false };
+  });
+}
+
 /** Server stamps the time; one record per employee per day (a second check-in is a 409). */
 export async function checkIn(actor: Session, now: Date = new Date(), input: CheckInInput = { method: "web" }) {
   const employeeId = requireEmployee(actor);
@@ -346,7 +405,7 @@ export async function checkIn(actor: Session, now: Date = new Date(), input: Che
   if (input.method === "web" && settings.cameraRequired) {
     throw new HttpError(403, "Your company requires camera check-in (face + location). Use the camera check-in button.", "camera_required");
   }
-  const camera = input.method === "camera" ? evaluateCameraCheckIn(input, settings) : null;
+  const camera = input.method === "camera" ? { ...evaluateCameraCheckIn(input, settings), faceVerified: await verifyFace(employeeId, input.descriptor) } : null;
 
   const status = statusForCheckIn(now, settings);
   try {
@@ -380,10 +439,11 @@ export async function checkOut(actor: Session, now: Date = new Date()) {
 export async function getToday(actor: Session, now: Date = new Date()) {
   const employeeId = requireEmployee(actor);
   const today = todayIso(now);
-  const [settings, holidays, rec] = await Promise.all([
+  const [settings, holidays, rec, face] = await Promise.all([
     getSettings(),
     getHolidaySet(today, today),
     db.attendance.findUnique({ where: { employeeId_date: { employeeId, date: toDate(today) } } }),
+    db.faceProfile.findUnique({ where: { employeeId }, select: { employeeId: true } }),
   ]);
   return {
     date: today,
@@ -396,6 +456,7 @@ export async function getToday(actor: Session, now: Date = new Date()) {
       required: settings.cameraRequired,
       radiusMeters: settings.radiusMeters,
       maxAccuracyMeters: MAX_GPS_ACCURACY_M,
+      faceEnrolled: !!face,
     },
     record: rec ? recordOut(rec) : null,
   };
