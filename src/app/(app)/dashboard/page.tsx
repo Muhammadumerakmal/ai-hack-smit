@@ -69,9 +69,15 @@ interface Insights {
     flags: { employeeId: string; name: string; department: string; kind: string; severity: "high" | "medium"; detail: string }[];
   };
 }
+interface WeekDay {
+  date: string;
+  hours: number;
+  weekend: boolean;
+  future: boolean;
+}
 interface PersonalDashboard {
   kind: "personal";
-  week: { hours: number; target: number; pctOfTarget: number | null };
+  week: { end: string; hours: number; target: number; pctOfTarget: number | null; days: WeekDay[] };
   month: { lateCount: number; attendanceRatePct: number | null };
   leaveBalance: { type: string; name: string; quota: number | null; usedApproved: number; pending: number; remaining: number | null }[];
   lastPayslip: { id: string; month: string; gross: number; net: number } | null;
@@ -563,6 +569,41 @@ function greeting() {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
+/** Hours per day, Monday to Sunday. The scale is a 9 h day (or the longest day), so short days read as short. */
+function WeekBars({ days, today }: { days: WeekDay[]; today: string }) {
+  const max = Math.max(9, ...days.map((d) => d.hours));
+  const dayName = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" });
+  return (
+    <figure className="border-t border-zinc-100 pt-4 dark:border-zinc-800/70">
+      <figcaption className="sr-only">Hours worked each day this week</figcaption>
+      <ol className="grid h-36 grid-cols-7 items-end gap-1.5">
+        {days.map((d) => {
+          const isToday = d.date === today;
+          return (
+            <li key={d.date} className="flex h-full min-w-0 flex-col items-center justify-end gap-1.5" aria-label={`${dayName(d.date)}: ${d.future ? "upcoming" : `${d.hours} hours`}`}>
+              <span className={cx("text-[10px] tabular-nums", d.hours ? "font-medium text-zinc-700 dark:text-zinc-300" : "text-transparent")} aria-hidden>
+                {d.hours}
+              </span>
+              <span className="flex w-full max-w-7 flex-1 items-end overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-800/70" aria-hidden>
+                <span
+                  className={cx("w-full rounded-md", isToday ? "bg-teal-600 dark:bg-teal-400" : d.weekend ? "bg-teal-300/70 dark:bg-teal-700" : "bg-teal-500/80 dark:bg-teal-500/70")}
+                  style={{ height: `${(d.hours / max) * 100}%` }}
+                />
+              </span>
+              <span
+                className={cx("text-[11px]", isToday ? "font-semibold text-teal-700 dark:text-teal-300" : d.weekend || d.future ? "text-zinc-400" : "text-zinc-500")}
+                aria-hidden
+              >
+                {dayName(d.date).slice(0, 2)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </figure>
+  );
+}
+
 function PersonalView() {
   const me = useMe();
   const { data, error, loading, reload } = useApi<PersonalDashboard>("/api/dashboard");
@@ -587,6 +628,7 @@ function PersonalView() {
                 <p className="text-xs text-zinc-500">
                   {data.week.pctOfTarget == null ? "No hours yet this week" : `${data.week.pctOfTarget}% of the ${data.week.target} h target`}
                 </p>
+                <WeekBars days={data.week.days} today={data.week.end} />
               </div>
             ) : (
               <div className="space-y-3">

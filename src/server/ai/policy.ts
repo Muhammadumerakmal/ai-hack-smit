@@ -1,4 +1,4 @@
-import { APP_TZ, todayIso, weekdayName } from "@/lib/dates";
+import { addDays, APP_TZ, todayIso, weekdayName, weekdayOf } from "@/lib/dates";
 import type { Session } from "@/lib/session";
 import { getHolidays, getLeaveTypes, getSettings } from "../services/settings.service";
 
@@ -57,5 +57,9 @@ export function roleScopeText(actor: Session): string {
 
 export function dateContext(): string {
   const today = todayIso();
-  return `Today is ${weekdayName(today)}, ${today} (timezone ${APP_TZ}). "This month" means ${today.slice(0, 7)}-01 to ${today}.`;
+  const monday = addDays(today, -((weekdayOf(today) + 6) % 7));
+  return (
+    `Today is ${weekdayName(today)}, ${today} (timezone ${APP_TZ}). "This month" means ${today.slice(0, 7)}-01 to ${today}. ` +
+    `"This week" means ${monday} to ${addDays(monday, 6)}; "next week" means ${addDays(monday, 7)} to ${addDays(monday, 13)}.`
+  );
 }

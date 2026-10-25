@@ -2,7 +2,7 @@ import type { LeaveStatus, LeaveType, Prisma, PrismaClient } from "@prisma/clien
 import { z } from "zod";
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { maxIso, minIso, toDate, toIso, todayIso, workingDays, yearRange } from "@/lib/dates";
+import { addDays, maxIso, minIso, toDate, toIso, todayIso, workingDays, yearRange } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
 import { assertRole, scopeEmployeeId, type Session } from "@/lib/session";
 import { getHolidaySet, getLeaveTypes, getSettings, resolveDepartmentId } from "./settings.service";
@@ -103,7 +103,7 @@ export async function getLeaveSummary(
   };
   const today = todayIso();
 
-  const [settings, holidays, types, approved, pendingCount, onLeaveToday, headcount] = await Promise.all([
+  const [settings, holidays, types, approved, pendingCount, onLeaveToday, headcount, upcoming] = await Promise.all([
     getSettings(),
     getHolidaySet(opts.start, opts.end),
     getLeaveTypes(),
@@ -117,6 +117,12 @@ export async function getLeaveSummary(
       include: { employee: { include: { department: true } }, leaveType: true },
     }),
     db.employee.count({ where: { status: { in: ["ACTIVE", "PROBATION"] }, ...(departmentId && { departmentId }), ...(employeeId && { id: employeeId }) } }),
+    db.leaveRequest.findMany({
+      where: { ...empFilter, status: "APPROVED", startDate: { gt: toDate(today), lte: toDate(addDays(today, 14)) } },
+      include: { employee: { include: { department: true } }, leaveType: true },
+      orderBy: { startDate: "asc" },
+      take: 20,
+    }),
   ]);
 
   // Only the part of each leave that falls inside the period, in working days.
@@ -137,6 +143,18 @@ export async function getLeaveSummary(
       return { type: t.code, days, utilizationPct: pool ? Math.round((days / pool) * 1000) / 10 : null };
     }),
     approvedDaysByDepartment: [...byDept.entries()].map(([department, days]) => ({ department, days })),
+    // Who is away during the period (future periods too, e.g. "who is on leave next week"), first start first.
+    onLeaveInPeriod: approved
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())
+      .slice(0, 50)
+      .map((l) => ({
+        name: l.employee.fullName,
+        department: l.employee.department.name,
+        type: l.leaveType.code,
+        start: toIso(l.startDate),
+        end: toIso(l.endDate),
+        workingDaysInPeriod: workingDays(maxIso(opts.start, toIso(l.startDate)), minIso(opts.end, toIso(l.endDate)), settings.weekendDays, holidays).length,
+      })),
     pendingRequests: pendingCount,
     onLeaveToday: {
       date: today,
@@ -148,6 +166,13 @@ export async function getLeaveSummary(
         until: toIso(l.endDate),
       })),
     },
+    upcomingNext14Days: upcoming.map((l) => ({
+      name: l.employee.fullName,
+      department: l.employee.department.name,
+      type: l.leaveType.code,
+      start: toIso(l.startDate),
+      end: toIso(l.endDate),
+    })),
   };
 }
 
@@ -207,7 +232,7 @@ async function overlapProblem(client: Client, employeeId: string, start: string,
       endDate: { gte: toDate(start) },
     },
   });
-  return overlap ? `You already have a ${overlap.status.toLowerCase()} leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.` : null;
+  return overlap ? `You already have ${overlap.status === "APPROVED" ? "an approved" : "a pending"} leave from ${toIso(overlap.startDate)} to ${toIso(overlap.endDate)}.` : null;
 }
 
 /**

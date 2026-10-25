@@ -347,15 +347,22 @@ export async function getEmployeeDashboard(actor: Session, now: Date = new Date(
   ]);
 
   // Closed days count check-in → check-out; today's open record counts up to now; past days with no check-out count 0.
-  let ms = 0;
+  const msByDay = new Map<string, number>();
   for (const r of week) {
     const end = r.checkOut ?? (toIso(r.date) === today ? now : null);
-    if (end && end > r.checkIn) ms += end.getTime() - r.checkIn.getTime();
+    if (end && end > r.checkIn) msByDay.set(toIso(r.date), end.getTime() - r.checkIn.getTime());
   }
-  const hoursThisWeek = Math.round((ms / 3_600_000) * 10) / 10;
+  const hours = (ms: number) => Math.round((ms / 3_600_000) * 10) / 10;
+  const hoursThisWeek = hours([...msByDay.values()].reduce((a, b) => a + b, 0));
+  const weekendDays = (await getSettings()).weekendDays;
+  // Monday to Sunday, so the card can draw a bar per day.
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(weekStart, i);
+    return { date, hours: hours(msByDay.get(date) ?? 0), weekend: weekendDays.includes(weekdayOf(date)), future: date > today };
+  });
 
   return {
-    week: { start: weekStart, end: today, hours: hoursThisWeek, target: 40, pctOfTarget: pct(hoursThisWeek, 40) },
+    week: { start: weekStart, end: today, hours: hoursThisWeek, target: 40, pctOfTarget: pct(hoursThisWeek, 40), days },
     month: { start: month.start, end: today, lateCount: attendance.counts.late, counts: attendance.counts, attendanceRatePct: attendance.attendanceRatePct },
     leaveBalance: balance.balances,
     lastPayslip: lastSlip

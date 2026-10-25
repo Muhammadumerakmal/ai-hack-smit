@@ -103,7 +103,7 @@ export const TOOLS = [
   tool({
     name: "get_leave_summary",
     description:
-      "Approved leave days by type and department in a period, pending leave requests, and who is on leave today. For employees this is only their own leave.",
+      "Approved leave days by type and department in a period, who is on approved leave during the period (onLeaveInPeriod; future periods work too, so pass start/end for 'this week' or 'next week'), pending leave requests, who is on leave today, and approved leave starting in the next 14 days. For employees this is only their own leave.",
     roles: ["ADMIN", "HR", "EMPLOYEE"],
     input: z.object({ ...period, department, employee }),
     run: async (actor, a) =>

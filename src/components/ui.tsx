@@ -44,7 +44,7 @@ export function Stat({ label, value, hint, tone = "default" }: { label: string; 
   );
 }
 
-type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost"; size?: "sm" | "md"; loading?: boolean };
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost" | "ai"; size?: "sm" | "md"; loading?: boolean };
 
 export function Button({ variant = "primary", size = "md", loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
@@ -52,6 +52,8 @@ export function Button({ variant = "primary", size = "md", loading, className, c
     secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
+    // AI actions only (violet is reserved for AI across the app)
+    ai: "bg-violet-600 text-white shadow-sm shadow-violet-900/10 hover:bg-violet-700 active:bg-violet-800",
   }[variant];
   return (
     <button

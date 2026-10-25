@@ -159,10 +159,25 @@ export async function getDayRows(f: RangeFilter): Promise<DayRow[]> {
   return rows;
 }
 
-export function countRows(rows: DayRow[]): Counts {
+export function countRows(rows: Pick<DayRow, "status">[]): Counts {
   const c = emptyCounts();
   for (const r of rows) if (r.status !== "not_checked_in") c[r.status]++;
   return c;
+}
+
+/**
+ * Check-ins on one day by people who have no day row there: on a weekend or holiday there are no rows at all,
+ * but someone who came in still counts as present / late for "today" and on the daily board.
+ * Period rates stay on working days only (Section 7), so getDayRows itself never includes these.
+ */
+export function offDayStatuses(
+  day: string,
+  today: string,
+  rows: Pick<DayRow, "employeeId">[],
+  records: { employeeId: string; status: AttendanceStatus; checkOut: Date | null }[],
+): { employeeId: string; status: DayStatus }[] {
+  const seen = new Set(rows.map((r) => r.employeeId));
+  return records.filter((r) => !seen.has(r.employeeId)).map((r) => ({ employeeId: r.employeeId, status: classifyDay(day, today, r, false) }));
 }
 
 export async function getAttendanceSummary(
@@ -233,8 +248,15 @@ export function lateComersFromRows(rows: DayRow[], opts: { start: string; end: s
 /** Today's board numbers for dashboards. Pass already-loaded rows that cover today to skip the query. */
 export async function getTodaySnapshot(departmentId?: string, loaded?: DayRow[]) {
   const today = todayIso();
-  const rows = (loaded ?? (await getDayRows({ start: today, end: today, departmentId }))).filter((r) => r.date === today);
-  const c = countRows(rows);
+  const [all, records] = await Promise.all([
+    loaded ?? getDayRows({ start: today, end: today, departmentId }),
+    db.attendance.findMany({
+      where: { date: toDate(today), ...(departmentId && { employee: { departmentId } }) },
+      select: { employeeId: true, status: true, checkOut: true },
+    }),
+  ]);
+  const rows = all.filter((r) => r.date === today);
+  const c = countRows([...rows, ...offDayStatuses(today, today, rows, records)]);
   return {
     date: today,
     present: c.present + c.late + c.half_day + c.missing_checkout,
@@ -533,15 +555,16 @@ export async function getBoard(actor: Session, opts: { date: string; department?
       distanceMeters: rec?.distanceMeters ?? null,
     };
   });
-  // People who worked on a weekend or holiday still show up on the board.
-  for (const rec of records) {
-    if (out.some((o) => o.employeeId === rec.employeeId)) continue;
+  // People who worked on a weekend or holiday still show up on the board, and in its summary.
+  const offDay = offDayStatuses(opts.date, todayIso(), rows, records);
+  for (const { employeeId, status } of offDay) {
+    const rec = recByEmp.get(employeeId)!;
     out.push({
-      employeeId: rec.employeeId,
+      employeeId,
       name: rec.employee.fullName,
       code: rec.employee.code,
       department: rec.employee.department.name,
-      status: rec.status.toLowerCase(),
+      status,
       checkIn: rec.checkIn.toISOString(),
       checkOut: rec.checkOut?.toISOString() ?? null,
       source: rec.source,
@@ -553,7 +576,7 @@ export async function getBoard(actor: Session, opts: { date: string; department?
     date: opts.date,
     isWorkingDay: !settings.weekendDays.includes(weekdayOf(opts.date)) && holidays.length === 0,
     holiday: holidays[0]?.name ?? null,
-    summary: { ...countRows(rows), notCheckedIn: rows.filter((r) => r.status === "not_checked_in").length },
+    summary: { ...countRows([...rows, ...offDay]), notCheckedIn: rows.filter((r) => r.status === "not_checked_in").length },
     rows: out,
   };
 }

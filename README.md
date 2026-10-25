@@ -22,7 +22,7 @@ npm run dev                     # http://localhost:3000
 
 **Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
 
-**Tests:** `npm test` runs 252 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
+**Tests:** `npm test` runs 262 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
 
 ## What is done
 

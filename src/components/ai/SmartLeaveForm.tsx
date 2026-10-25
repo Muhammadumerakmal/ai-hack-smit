@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { OpsIcon } from "@/components/ops/icons";
+import { cx, Panel } from "@/components/ops/primitives";
+import { Button, Field, Input, Notice, Select } from "@/components/ui";
 import { AiBadge } from "./AiBadge";
 import { postAi } from "./api";
 
@@ -27,6 +30,9 @@ interface SmartLeaveData {
 }
 
 const EMPTY: LeaveFormValues = { type: "", start: "", end: "", reason: "" };
+
+// Clicking one only fills the sentence box; the user still presses "Fill the form", checks, and confirms.
+const EXAMPLES = ["Next Monday and Tuesday off for my sister's wedding", "I'm sick today", "3 days annual leave from the 1st of next month"];
 
 /**
  * Smart leave: sentence → AI draft → the normal leave form, pre-filled.
@@ -80,12 +86,16 @@ export function SmartLeaveForm({
     const res = await onSubmit(form);
     setBusy(null);
     setNotice({ tone: res.ok ? "ok" : "warn", text: res.message });
-    if (res.ok) {
-      setForm(EMPTY);
-      setText("");
-      setPreview(null);
-      setAiFilled(false);
-    }
+    if (res.ok) reset(false);
+  }
+
+  function reset(clearNotice = true) {
+    setForm(EMPTY);
+    setText("");
+    setPreview(null);
+    setAiFilled(false);
+    setQuestion(null);
+    if (clearNotice) setNotice(null);
   }
 
   const set = (k: keyof LeaveFormValues) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -93,123 +103,143 @@ export function SmartLeaveForm({
     setPreview(null); // edited by hand: the AI preview no longer applies
   };
 
-  const field = "w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-violet-500 dark:border-zinc-700";
+  const noTypes = !leaveTypesLoading && !leaveTypes.length;
+  const dirty = !!(form.type || form.start || form.end || form.reason || text);
 
   return (
-    <section className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="space-y-2">
-        <label htmlFor="smart-leave-text" className="text-sm font-semibold">
-          Describe your leave
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            id="smart-leave-text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fillFromText())}
-            maxLength={500}
-            placeholder="e.g. I need next Monday and Tuesday off for my sister's wedding"
-            className={field}
-          />
-          <button
-            type="button"
-            onClick={fillFromText}
-            disabled={busy !== null || text.trim().length < 3 || leaveTypesLoading || !leaveTypes.length}
-            className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
-            {busy === "ai" ? "Reading…" : "✦ Fill the form"}
-          </button>
-        </div>
-      </div>
-
-      {question && (
-        <div role="status" className="space-y-1 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:bg-violet-950 dark:text-violet-200">
-          <p>{question}</p>
-          <p className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
-            <AiBadge /> Add the details to your sentence above and press “Fill the form” again.
-          </p>
-        </div>
-      )}
-
-      {notice && (
-        <p
-          role="status"
-          className={`rounded-lg px-3 py-2 text-sm ${
-            notice.tone === "ok"
-              ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
-              : notice.tone === "warn"
-                ? "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
-                : "bg-violet-50 text-violet-900 dark:bg-violet-950 dark:text-violet-200"
-          }`}
-        >
-          {notice.text}
-        </p>
-      )}
-
-      {leaveTypesLoading && !leaveTypes.length && <p role="status" className="text-sm text-zinc-500">Loading leave types…</p>}
-      {!leaveTypesLoading && !leaveTypes.length && (
-        <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
-          No leave types are available. Ask an Admin to configure them in Company setup.
-        </p>
-      )}
-
-      <form onSubmit={confirm} className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Leave request</h3>
-          {aiFilled && <AiBadge />}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-            Type
-            <select required disabled={leaveTypesLoading || !leaveTypes.length} value={form.type} onChange={set("type")} className={field}>
-              <option value="">Select…</option>
-              {leaveTypes.map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+    <Panel icon="calendar" title="Request leave" subtitle="Describe it in plain words and the assistant fills in the form for you to check. Nothing is sent until you confirm.">
+      <div className="space-y-5">
+        <div className="rounded-xl bg-gradient-to-br from-violet-50 to-white p-3 ring-1 ring-violet-200/70 sm:p-4 dark:from-violet-500/10 dark:to-transparent dark:ring-violet-400/20">
+          <label htmlFor="smart-leave-text" className="mb-2 flex items-center gap-2 text-[13px] font-medium text-violet-900 dark:text-violet-200">
+            <OpsIcon name="sparkle" className="h-4 w-4" /> Smart leave
           </label>
-          <label className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-            From
-            <input required type="date" value={form.start} onChange={set("start")} className={field} />
-          </label>
-          <label className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-            To
-            <input required type="date" min={form.start} value={form.end} onChange={set("end")} className={field} />
-          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              id="smart-leave-text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), fillFromText())}
+              maxLength={500}
+              placeholder="e.g. I need next Monday and Tuesday off for my sister's wedding"
+            />
+            <Button
+              type="button"
+              variant="ai"
+              onClick={fillFromText}
+              loading={busy === "ai"}
+              disabled={busy !== null || text.trim().length < 3 || leaveTypesLoading || !leaveTypes.length}
+              className="shrink-0"
+            >
+              {busy === "ai" ? "Reading…" : "Fill the form"}
+            </Button>
+          </div>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => setText(ex)}
+                className="rounded-full bg-white px-2.5 py-1 text-xs text-violet-800 ring-1 ring-violet-200 transition-colors hover:bg-violet-100 dark:bg-zinc-900 dark:text-violet-200 dark:ring-violet-400/30 dark:hover:bg-violet-500/10"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
         </div>
-        <label className="block space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-          Reason
-          <input required value={form.reason} onChange={set("reason")} maxLength={300} className={field} />
-        </label>
 
-        {preview && (
-          <div className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-            <p>
-              {preview.workingDays} working day{preview.workingDays === 1 ? "" : "s"}
-              {preview.remainingAfter != null && ` · ${preview.remainingAfter} left after this`}
+        {question && (
+          <div role="status" className="space-y-1 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:bg-violet-950 dark:text-violet-200">
+            <p>{question}</p>
+            <p className="flex items-center gap-2 text-xs text-violet-700 dark:text-violet-300">
+              <AiBadge /> Add the details to your sentence above and press “Fill the form” again.
             </p>
-            {preview.notes.map((n) => (
-              <p key={n}>{n}</p>
-            ))}
-            {preview.blocking.map((b) => (
-              <p key={b} className="font-medium text-red-700 dark:text-red-400">
-                {b}
-              </p>
-            ))}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={busy !== null || !leaveTypes.length || !!preview?.blocking.length}
-          className="w-full rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40 sm:w-auto"
-        >
-          {busy === "submit" ? "Submitting…" : "Confirm and apply"}
-        </button>
-      </form>
-    </section>
+        {notice &&
+          (notice.tone === "info" ? (
+            <p role="status" className="flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-900 dark:bg-violet-950 dark:text-violet-200">
+              <OpsIcon name="info" className="h-4 w-4 shrink-0" />
+              {notice.text}
+            </p>
+          ) : (
+            <Notice tone={notice.tone === "ok" ? "success" : "warn"}>{notice.text}</Notice>
+          ))}
+
+        {leaveTypesLoading && !leaveTypes.length && (
+          <p role="status" className="text-sm text-zinc-500">
+            Loading leave types…
+          </p>
+        )}
+        {noTypes && <Notice tone="warn">No leave types are available. Ask an Admin to configure them in Company setup.</Notice>}
+
+        <form onSubmit={confirm} className="space-y-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-[13px] font-semibold uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Leave request</h3>
+            <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" aria-hidden />
+            {aiFilled && <AiBadge />}
+          </div>
+          <div className={cx("grid gap-3 sm:grid-cols-3", aiFilled && "rounded-xl ring-2 ring-violet-200/60 ring-offset-4 ring-offset-white dark:ring-violet-400/20 dark:ring-offset-zinc-900")}>
+            <Field label="Type">
+              <Select required disabled={leaveTypesLoading || !leaveTypes.length} value={form.type} onChange={set("type")}>
+                <option value="">Select…</option>
+                {leaveTypes.map((t) => (
+                  <option key={t.code} value={t.code}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="From">
+              <Input required type="date" value={form.start} onChange={set("start")} />
+            </Field>
+            <Field label="To">
+              <Input required type="date" min={form.start} value={form.end} onChange={set("end")} />
+            </Field>
+          </div>
+          <Field label="Reason" hint="HR sees this when deciding.">
+            <Input required value={form.reason} onChange={set("reason")} maxLength={300} />
+          </Field>
+
+          {preview && (
+            <div className="space-y-2 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
+              <div className="flex flex-wrap gap-x-6 gap-y-1">
+                <p>
+                  <span className="font-semibold tabular-nums">{preview.workingDays}</span> working day{preview.workingDays === 1 ? "" : "s"}
+                </p>
+                {preview.remainingAfter != null && (
+                  <p>
+                    <span className="font-semibold tabular-nums">{preview.remainingAfter}</span> left after this
+                  </p>
+                )}
+              </div>
+              {preview.notes.map((n) => (
+                <p key={n} className="text-xs text-zinc-600 dark:text-zinc-400">
+                  {n}
+                </p>
+              ))}
+              {preview.blocking.map((b) => (
+                <p key={b} className="flex items-start gap-1.5 text-[13px] font-medium text-red-700 dark:text-red-400">
+                  <OpsIcon name="alert" className="mt-0.5 h-4 w-4 shrink-0" />
+                  {b}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button type="submit" loading={busy === "submit"} disabled={busy !== null || !leaveTypes.length || !!preview?.blocking.length} className="sm:w-auto">
+              <OpsIcon name="check" /> {busy === "submit" ? "Submitting…" : "Confirm and apply"}
+            </Button>
+            {dirty && (
+              <Button type="button" variant="ghost" onClick={() => reset()} disabled={busy !== null}>
+                Clear
+              </Button>
+            )}
+          </div>
+        </form>
+      </div>
+    </Panel>
   );
 }
 

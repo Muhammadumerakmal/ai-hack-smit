@@ -33,7 +33,7 @@ Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgr
 - The AI is never called live in tests. Inject fakes with `setChatModel(new ScriptedModel([...]))` (chat, Agents SDK) and `setLlm(...)` (summary / smart leave). Helpers are in `tests/ai-fake.ts`. `scripts/qa-live-ai.ts` is the opt-in live check against a real provider and costs money.
 - `tests/security-matrix.test.ts` imports every `src/app/api/**/route.ts` via `import.meta.glob`. **A new route or method fails the suite until you add it to the `ACCESS` table** with its allowed roles.
 - `tests/security-integrity.test.ts.wip` is parked work and does not run.
-- Last full run: 252 passing (`history/` records each session's count).
+- Last full run: 262 passing (`history/` records each session's count).
 
 ## Architecture
 

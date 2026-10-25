@@ -37,3 +37,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [05 Bonus features](2026-10-25-05-bonus-features.md) | 2026-10-25 | Camera check-in, attrition risk, anomaly flags, late penalty, PWA |
 | [06 PDF gap audit](2026-10-25-06-pdf-gap-audit.md) | 2026-10-25 | Face matching to an enrolled face, payroll cost by month |
 | [07 Mobile layout](2026-10-25-07-mobile-layout.md) | 2026-10-25 | Phone card layouts for payroll/payslips, month labels, compact chat button |
+| [08 Demo-run fixes & Leave UI](2026-10-25-08-demo-run-fixes-leave-ui.md) | 2026-10-25 | Off-day check-ins in today KPIs, "who is on leave" in a period, Leave page redesign, week bars |
