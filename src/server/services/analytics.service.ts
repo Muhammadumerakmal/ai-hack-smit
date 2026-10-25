@@ -6,6 +6,7 @@ import { assertRole, type Session } from "@/lib/session";
 import { countRows, getAttendanceSummary, getDayRows, getTodaySnapshot, lateComersFromRows, rates, summarizeRows, type DayRow } from "./attendance.service";
 import { latestAudit, listAnnouncements } from "./comms.service";
 import { getHeadcount } from "./employee.service";
+import { computeInsights, type Insights } from "./insights.service";
 import { getLeaveBalance, getLeaveSummary } from "./leave.service";
 import { getHolidaySet, getLeaveTypes, getSettings, resolveDepartmentId } from "./settings.service";
 
@@ -27,7 +28,29 @@ const deptWhere = (departmentId?: string): Prisma.EmployeeWhereInput => (departm
 export async function getDashboardKpis(actor: Session, f: DashboardFilters) {
   assertRole(actor, "ADMIN", "HR");
   const departmentId = await resolveDepartmentId(f.department);
-  return kpisFromRows(actor, f, departmentId, await getDayRows({ start: f.start, end: f.end, departmentId }));
+  const rows = await getDayRows({ start: f.start, end: f.end, departmentId });
+  return kpisFromRows(actor, f, departmentId, rows, await computeInsights({ ...f, departmentId }, rows));
+}
+
+/** The short form of the insights that goes into the KPI JSON (and so into the AI summary). */
+function insightsKpis(i: Insights) {
+  return {
+    attritionRisk: {
+      window: `${i.attritionRisk.window.start} to ${i.attritionRisk.window.end}`,
+      employeesScored: i.attritionRisk.scored,
+      high: i.attritionRisk.counts.high,
+      medium: i.attritionRisk.counts.medium,
+      top: i.attritionRisk.employees
+        .filter((e) => e.level !== "low")
+        .slice(0, 5)
+        .map((e) => ({ name: e.name, department: e.department, score: e.score, level: e.level, mainReason: e.factors[0]?.detail ?? null })),
+    },
+    absenceAnomalies: {
+      flags: i.anomalies.total,
+      employeesFlagged: i.anomalies.employeesFlagged,
+      top: i.anomalies.flags.slice(0, 5).map((a) => ({ name: a.name, department: a.department, kind: a.kind, detail: a.detail })),
+    },
+  };
 }
 
 /**
@@ -35,7 +58,7 @@ export async function getDashboardKpis(actor: Session, f: DashboardFilters) {
  * pure helpers the AI tools (get_attendance_summary, get_late_comers) use, so the numbers are identical,
  * but the expensive employee × day scan runs once per dashboard load instead of three or four times.
  */
-async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: string | undefined, rows: DayRow[]) {
+async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: string | undefined, rows: DayRow[], insights: Insights) {
   const today = todayIso();
   const attendance = summarizeRows(rows, { start: f.start, end: f.end, scope: f.department ?? "all departments", byDepartment: true });
   const late = lateComersFromRows(rows, { ...f, limit: 5 });
@@ -70,6 +93,7 @@ async function kpisFromRows(actor: Session, f: DashboardFilters, departmentId: s
       pendingAttendanceCorrections: pendingCorrections,
       total: leave.pendingRequests + pendingCorrections,
     },
+    insights: insightsKpis(insights),
   };
 
   if (actor.role !== "ADMIN") return kpis;
@@ -240,8 +264,9 @@ export async function getDashboard(actor: Session, f: DashboardFilters) {
   assertRole(actor, "ADMIN", "HR");
   const departmentId = await resolveDepartmentId(f.department);
   const rows = await getDayRows({ start: f.start, end: f.end, departmentId });
+  const insights = await computeInsights({ ...f, departmentId }, rows);
   const [kpis, trend, leaveUtilization, departments, announcements] = await Promise.all([
-    kpisFromRows(actor, f, departmentId, rows),
+    kpisFromRows(actor, f, departmentId, rows, insights),
     getAttendanceTrend({ ...f, departmentId }, rows),
     getLeaveUtilization({ ...f, departmentId }),
     db.department.findMany({ orderBy: { name: "asc" }, select: { name: true } }),
@@ -255,6 +280,10 @@ export async function getDashboard(actor: Session, f: DashboardFilters) {
     kpis,
     trend,
     leaveUtilization,
+    insights: {
+      attritionRisk: { ...insights.attritionRisk, employees: insights.attritionRisk.employees.slice(0, 10) },
+      anomalies: { ...insights.anomalies, flags: insights.anomalies.flags.slice(0, 20) },
+    },
     announcements,
   };
   if (actor.role !== "ADMIN") return base;

@@ -25,6 +25,11 @@ export function monthlyTax(earnedGrossMonthly: number): number {
   return Math.round(annualTax(Math.max(0, earnedGrossMonthly) * 12) / 12);
 }
 
+/** Bonus rule (off unless Admin enables it): every 3 late days in the month cost half a day. 7 lates → 1 day. */
+export function latePenaltyDays(lateDays: number): number {
+  return Math.floor(Math.max(0, lateDays) / 3) * 0.5;
+}
+
 export interface PayInputs {
   basic: number;
   /** working days in the calendar month (weekdays minus holidays) */
@@ -34,11 +39,13 @@ export interface PayInputs {
   halfDays: number;
   /** working days before joining / after leaving (proration) */
   daysNotEmployed: number;
+  /** late penalty days (see latePenaltyDays); 0 when the rule is off */
+  latePenaltyDays?: number;
 }
 
 /**
  * Gross = 1.5 × basic (HRA 40%, medical 10%). Per day = gross ÷ working days.
- * Deduct absent + unpaid leave + 0.5 × half days + days not employed. Net never below 0.
+ * Deduct absent + unpaid leave + 0.5 × half days + days not employed (+ late penalty days if enabled). Net never below 0.
  */
 export function computePay(i: PayInputs) {
   const basic = money(i.basic);
@@ -46,7 +53,7 @@ export function computePay(i: PayInputs) {
   const medical = money(i.basic * 0.1);
   const gross = money(i.basic * 1.5);
   const perDay = i.workingDays > 0 ? gross / i.workingDays : 0;
-  const deductedDays = Math.min(i.workingDays, i.absentDays + i.unpaidLeaveDays + 0.5 * i.halfDays + i.daysNotEmployed);
+  const deductedDays = Math.min(i.workingDays, i.absentDays + i.unpaidLeaveDays + 0.5 * i.halfDays + i.daysNotEmployed + (i.latePenaltyDays ?? 0));
   const deductions = money(perDay * deductedDays);
   const tax = monthlyTax(gross - deductions);
   const net = money(Math.max(0, gross - deductions - tax));
@@ -130,6 +137,8 @@ export async function computeMonth(month: string) {
       for (const d of monthDays) if (d >= from && d <= to && employed(d)) unpaid.add(d);
     }
 
+    const lateDays = mine.filter((r) => r.status === "late").length;
+    const penalty = settings.latePenaltyEnabled ? latePenaltyDays(lateDays) : 0;
     const pay = computePay({
       basic: Number(e.basicSalary),
       workingDays: monthDays.length,
@@ -137,8 +146,9 @@ export async function computeMonth(month: string) {
       unpaidLeaveDays: unpaid.size,
       halfDays: mine.filter((r) => r.status === "half_day").length,
       daysNotEmployed: monthDays.filter((d) => !employed(d)).length,
+      latePenaltyDays: penalty,
     });
-    return { employeeId: e.id, workingDays: monthDays.length, ...pay };
+    return { employeeId: e.id, workingDays: monthDays.length, lateDays, latePenaltyDays: penalty, ...pay };
   });
   return { month, workingDays: monthDays.length, slips };
 }
@@ -174,6 +184,8 @@ export async function createOrRecomputeDraft(actor: Session, month: string) {
         net: s.net,
         workingDays: s.workingDays,
         paidDays: s.paidDays,
+        lateDays: s.lateDays,
+        latePenaltyDays: s.latePenaltyDays,
       })),
     });
     const totals = { employees: computed.slips.length, totalGross: money(computed.slips.reduce((n, s) => n + s.gross, 0)), totalNet: money(computed.slips.reduce((n, s) => n + s.net, 0)) };
@@ -205,6 +217,8 @@ export async function getRun(actor: Session, month: string) {
     net: money(p.net),
     workingDays: p.workingDays,
     paidDays: p.paidDays,
+    lateDays: p.lateDays,
+    latePenaltyDays: p.latePenaltyDays,
   }));
   const sum = (k: "gross" | "deductions" | "tax" | "net") => money(payslips.reduce((n, p) => n + p[k], 0));
   return {
@@ -285,6 +299,8 @@ export async function getPayslipDetail(actor: Session, id: string) {
     employee: { code: p.employee.code, name: p.employee.fullName, department: p.employee.department.name, designation: p.employee.designation?.title ?? null },
     workingDays: p.workingDays,
     paidDays: p.paidDays,
+    lateDays: p.lateDays,
+    latePenaltyDays: p.latePenaltyDays,
     basic: money(p.basic),
     hra: money(p.hra),
     medical: money(p.medical),
@@ -372,5 +388,7 @@ async function getOwnPayslip(actor: Session, month?: string) {
     net: money(slip.net),
     workingDays: slip.workingDays,
     paidDays: slip.paidDays,
+    lateDays: slip.lateDays,
+    latePenaltyDays: slip.latePenaltyDays,
   };
 }

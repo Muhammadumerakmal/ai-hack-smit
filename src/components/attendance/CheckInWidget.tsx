@@ -6,6 +6,7 @@ import { OpsIcon } from "@/components/ops/icons";
 import { cx, Skeleton, StatusPill } from "@/components/ops/primitives";
 import { Button, Notice } from "@/components/ui";
 import { api, fmtTime, useApi } from "@/lib/client";
+import { CameraCheckIn } from "./CameraCheckIn";
 
 interface Today {
   date: string;
@@ -13,7 +14,8 @@ interface Today {
   officeStart: string;
   graceMinutes: number;
   halfDayHours?: number;
-  record: { checkIn: string; checkOut: string | null; status: string } | null;
+  camera?: { available: boolean; required: boolean; radiusMeters: number; maxAccuracyMeters: number };
+  record: { checkIn: string; checkOut: string | null; status: string; source?: string; distanceMeters?: number | null } | null;
 }
 
 /** Live wall clock in company time; ticks every second. */
@@ -34,6 +36,7 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
   const { data, error, loading, reload } = useApi<Today>("/api/attendance/today");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const now = useNow();
 
   async function act(kind: "check-in" | "check-out") {
@@ -51,7 +54,15 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
     }
   }
 
+  function cameraDone(distance: number | null) {
+    setCameraOpen(false);
+    setMsg({ tone: "success", text: `You're checked in with the camera${distance != null ? ` (${distance} m from the office)` : ""}. Have a good day!` });
+    reload();
+    onChange?.();
+  }
+
   const rec = data?.record ?? null;
+  const cam = data?.camera;
   const done = !!rec?.checkOut;
   const worked = rec ? minutesBetween(rec.checkIn, rec.checkOut, now.getTime()) : null;
   const [hhmm, ss] = [clockFmt.format(now).slice(0, 5), clockFmt.format(now).slice(6, 8)];
@@ -116,6 +127,11 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px] text-zinc-500 dark:text-zinc-400">
               {rec && <StatusPill status={rec.status} />}
+              {rec?.source === "camera" && (
+                <span className="inline-flex items-center gap-1 text-teal-700 dark:text-teal-300">
+                  <OpsIcon name="camera" className="h-3.5 w-3.5" /> Camera{rec.distanceMeters != null ? ` · ${rec.distanceMeters} m` : ""}
+                </span>
+              )}
               <span>
                 Office {data.officeStart} · late after {addClock(data.officeStart, data.graceMinutes)}
                 {data.halfDayHours ? ` · half day under ${data.halfDayHours} h` : ""}
@@ -132,11 +148,28 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
             {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
             <div className="mt-auto">
-              {!rec && (
-                <Button onClick={() => act("check-in")} loading={busy} className="h-11 w-full text-[15px]">
-                  {!busy && <OpsIcon name="login" className="h-4 w-4" />}
-                  Check in now
-                </Button>
+              {!rec && cam?.required && (
+                <div className="space-y-2">
+                  <Button onClick={() => setCameraOpen(true)} disabled={!cam.available} className="h-11 w-full text-[15px]">
+                    <OpsIcon name="camera" className="h-4 w-4" />
+                    Check in with camera
+                  </Button>
+                  <p className="text-center text-xs text-zinc-500">Your company requires a face + location check-in.</p>
+                </div>
+              )}
+              {!rec && !cam?.required && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button onClick={() => act("check-in")} loading={busy} className="h-11 w-full text-[15px] sm:flex-1">
+                    {!busy && <OpsIcon name="login" className="h-4 w-4" />}
+                    Check in now
+                  </Button>
+                  {cam?.available && (
+                    <Button variant="secondary" onClick={() => setCameraOpen(true)} disabled={busy} className="h-11 w-full text-[15px] sm:w-auto">
+                      <OpsIcon name="camera" className="h-4 w-4" />
+                      Use camera
+                    </Button>
+                  )}
+                </div>
               )}
               {rec && !done && (
                 <Button
@@ -157,6 +190,9 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
           </>
         ) : null}
       </div>
+      {cameraOpen && cam && (
+        <CameraCheckIn maxAccuracyMeters={cam.maxAccuracyMeters} radiusMeters={cam.radiusMeters} onClose={() => setCameraOpen(false)} onDone={cameraDone} />
+      )}
     </section>
   );
 }

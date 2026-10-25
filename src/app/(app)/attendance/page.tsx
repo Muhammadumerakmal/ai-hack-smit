@@ -60,6 +60,8 @@ interface BoardRow {
   status: string;
   checkIn: string | null;
   checkOut: string | null;
+  source?: string | null;
+  distanceMeters?: number | null;
 }
 interface Board {
   date: string;
@@ -419,7 +421,21 @@ function DailyBoard() {
   const columns: Column<BoardRow>[] = [
     { key: "emp", header: "Employee", hideOnMobile: true, cell: (r) => <PersonCell name={r.name} meta={r.code} /> },
     { key: "dept", header: "Department", cell: (r) => r.department },
-    { key: "in", header: "Check-in", cell: (r) => <span className="tabular-nums">{fmtTime(r.checkIn)}</span> },
+    {
+      key: "in",
+      header: "Check-in",
+      cell: (r) => (
+        <span className="inline-flex items-center gap-1.5 tabular-nums">
+          {fmtTime(r.checkIn)}
+          {r.source === "camera" && (
+            <span title={`Camera check-in${r.distanceMeters != null ? `, ${r.distanceMeters} m from the office` : ""}`} className="text-teal-600 dark:text-teal-400">
+              <OpsIcon name="camera" className="h-3.5 w-3.5" />
+              <span className="sr-only">camera check-in</span>
+            </span>
+          )}
+        </span>
+      ),
+    },
     { key: "out", header: "Check-out", cell: (r) => <span className="tabular-nums">{fmtTime(r.checkOut)}</span> },
     {
       key: "worked",

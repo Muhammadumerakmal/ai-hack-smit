@@ -6,6 +6,7 @@ import type { Role, Session } from "@/lib/session";
 import { getAttendanceSummary, getLateComers } from "../services/attendance.service";
 import { getHeadcount, searchEmployees } from "../services/employee.service";
 import { getLeaveBalance, getLeaveSummary } from "../services/leave.service";
+import { getPeopleInsights } from "../services/insights.service";
 import { getPayrollSummary } from "../services/payroll.service";
 import type { ToolDef } from "./llm";
 
@@ -123,6 +124,14 @@ export const TOOLS = [
     roles: ["ADMIN", "HR", "EMPLOYEE"],
     input: z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional().describe("Month YYYY-MM, default latest run."), department }),
     run: (actor, a) => getPayrollSummary(actor, a),
+  }),
+  tool({
+    name: "get_people_insights",
+    description:
+      "Admin/HR: attrition risk scores (0-100, high/medium/low, with the reasons) from the last 90 days, and absence anomaly flags (absent several days in a row, absences next to weekends/holidays, repeated missing check-outs, absence far above the group) in a period. Use for 'who might leave', 'who is at risk', 'any unusual absences'.",
+    roles: ["ADMIN", "HR"],
+    input: z.object({ ...period, department, limit: z.number().int().min(1).max(20).optional() }),
+    run: (actor, a) => getPeopleInsights(actor, { ...defaultPeriod(a), department: a.department, limit: a.limit }),
   }),
   tool({
     name: "search_employees",

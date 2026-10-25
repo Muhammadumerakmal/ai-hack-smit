@@ -90,6 +90,7 @@ export function renderPayslipPdf(p: PayslipDetail): ArrayBuffer {
     ["Designation", p.employee.designation ?? "-"],
     ["Working days", String(p.workingDays)],
     ["Paid days", String(p.paidDays)],
+    ...(p.latePenaltyDays ? ([["Late penalty", `${p.latePenaltyDays} day (${p.lateDays} late days, 0.5 day per 3)`]] as [string, string][]) : []),
   ];
   info.forEach(([k, v], i) => {
     t.push({ x: L, y: 720 - i * 18, text: k, size: 10, bold: true });
@@ -105,7 +106,7 @@ export function renderPayslipPdf(p: PayslipDetail): ArrayBuffer {
     ["House rent allowance (40%)", p.hra],
     ["Medical allowance (10%)", p.medical],
     ["Gross salary", p.gross, true],
-    ["Deductions (absence, unpaid leave, half days)", -p.deductions],
+    [`Deductions (absence, unpaid leave, half days${p.latePenaltyDays ? ", late penalty" : ""})`, -p.deductions],
     ["Income tax", -p.tax],
   ];
   for (const [label, amount, bold] of rows) {

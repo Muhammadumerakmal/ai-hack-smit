@@ -56,6 +56,10 @@ model CompanySettings {
   officeLat    Float?
   officeLng    Float?
   radiusMeters Int      @default(150)
+  /// Bonus rule: every 3 late days in a month deduct half a day of pay (off by default; Section 3 has no such rule)
+  latePenaltyEnabled Boolean @default(false)
+  /// When on, the plain web check-in is refused: face + location (camera check-in) only
+  cameraRequired     Boolean @default(false)
   updatedAt    DateTime @updatedAt
 
   @@map("settings")
@@ -176,7 +180,11 @@ model Attendance {
   checkIn    DateTime
   checkOut   DateTime?
   status     AttendanceStatus
+  /// web | camera | correction
   source     String           @default("web")
+  /// Camera check-in only: the result of the server's geofence check. No photo and no raw coordinates are stored.
+  distanceMeters Int?
+  gpsAccuracy    Int?
 
   employee Employee @relation(fields: [employeeId], references: [id])
 
@@ -234,6 +242,9 @@ model Payslip {
   net         Decimal @db.Decimal(12, 2)
   workingDays Int
   paidDays    Float
+  lateDays        Int   @default(0)
+  /// 0.5 day per 3 late days, only when the late penalty rule is on (included in deductions)
+  latePenaltyDays Float @default(0)
 
   run      PayrollRun @relation(fields: [runId], references: [id])
   employee Employee   @relation(fields: [employeeId], references: [id])

@@ -17,6 +17,15 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "same-origin" },
         ],
       },
+      {
+        // The service worker must never be served stale, and may only load same-origin code.
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+        ],
+      },
     ];
   },
   async rewrites() {

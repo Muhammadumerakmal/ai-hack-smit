@@ -18,9 +18,9 @@ npm run dev                     # http://localhost:3000
 
 **AI key:** set `AI_API_KEY` (OpenAI) in `.env`, or in the host's environment settings. Only the server reads it. `AI_MODEL` defaults to `gpt-4.1-mini`. Any OpenAI-compatible provider works via `AI_BASE_URL`.
 
-**Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`).
+**Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
 
-**Tests:** `npm test` runs 121 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
+**Tests:** `npm test` runs 243 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
 
 ## What is done
 
@@ -35,9 +35,26 @@ npm run dev                     # http://localhost:3000
 | M7 | Dashboards: Admin / HR / Employee, KPIs, trends, insight lists, date + department filters, all computed on the server | ✅ |
 | M8 | AI assistant: chat with 7 role-scoped tools, dashboard summary, smart leave, policy Q&A, guardrails (below) | ✅ |
 | M9 | Announcements, in-app notifications, append-only audit log with before/after JSON | ✅ |
-| Bonus | AI understands Roman Urdu · dark mode (follows the system setting) | ✅ |
+| Bonus | Camera attendance on the web: face detection + location, with a blink liveness check | ✅ |
+| Bonus | Attrition risk score and absence anomaly flags (dashboard, AI summary, AI tool) | ✅ |
+| Bonus | Late penalty rule (3 lates = 0.5 day), Admin switch, shown on payroll and the payslip PDF | ✅ |
+| Bonus | AI understands Roman Urdu · dark mode (follows the system setting) · PWA (installable, offline page) | ✅ |
 
-**Not done:** mobile app and camera/face check-in (optional bonus), attrition risk score, absence anomaly flags, the late-penalty rule. The frontend is intentionally basic (the backend was the priority).
+**Not done:** a native mobile app (camera check-in runs in the mobile or laptop browser instead) and face *matching* against an enrolled face (the camera checks for exactly one live face, not whose face it is).
+
+## Bonus features
+
+**Camera check-in (Section 5).** The *Use camera* button on the dashboard or attendance page opens the front camera. MediaPipe's face landmarker (`@mediapipe/tasks-vision`, runs on the device) needs **exactly one face** and **a blink**. The browser sends `{ method: "camera", lat, lng, accuracy, faces, liveness }` to `POST /api/attendance/check-in`, and the **server** decides. It rejects with 422 if there is no face or more than one, no blink, GPS accuracy worse than 100 m, or a Haversine distance to the office beyond the radius. The time is stamped by the server as usual. Only the distance and GPS accuracy are stored (`source = camera`): no photo and no coordinates. A failed check points to an HR attendance correction. Admin sets the office pin (with a *Use my current location* button) and the radius in Company setup, and can switch on **Require camera check-in**, which turns off the plain web button. The camera and GPS need HTTPS (or localhost). The face model loads from the jsDelivr / Google CDNs on first use.
+
+**Attrition risk score.** A rule-based score out of 100 for each active employee over the last 90 days: absenteeism 30 · lateness 20 · absence rising in the last 30 days 20 · unpaid leave 15 · tenure under a year 15. High ≥ 60, medium ≥ 35. Every score lists its reasons. It needs 5 working days of history.
+
+**Absence anomaly flags** (inside the dashboard period): 3+ working days absent in a row (5+ is high), 2+ absences next to a weekend or holiday, 3+ missing check-outs, and absence at least twice the group's rate.
+
+Both run on the same day rows as the dashboards, so every flag can be checked on the attendance calendar. They appear on the HR/Admin dashboards and in the KPI JSON behind **Summarize**, and the assistant can answer "who is at risk of leaving?" through the HR/Admin tool `get_people_insights`.
+
+**Late penalty.** Off by default, because Section 3 doesn't have it. When Admin switches it on, every 3 late days in a month deduct half a day in that month's payroll (7 lates = 1 day). The payroll table and the payslip PDF show it, and policy Q&A explains it.
+
+**PWA.** `app/manifest.ts`, icons, and a service worker (`public/sw.js`, production builds only) that caches build assets and shows an offline page. It **never caches `/api`**, so personal data is always live.
 
 ## Roles
 
@@ -69,7 +86,7 @@ Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · 1
 | Smart leave | `POST /api/ai/smart-leave` → pre-filled form, user confirms | Employee, HR |
 | Policy Q&A | inside chat (Section 3 rules + live settings in the system prompt) | All |
 
-**Tools:** `get_headcount`, `get_attendance_summary`, `get_late_comers`, `get_leave_summary`, `get_my_leave_balance`, `get_payroll_summary`, `search_employees`.
+**Tools:** `get_headcount`, `get_attendance_summary`, `get_late_comers`, `get_leave_summary`, `get_my_leave_balance`, `get_payroll_summary`, `search_employees`, plus the bonus `get_people_insights` (Admin/HR: attrition risk and absence anomalies).
 
 **Guardrails:**
 - The key is read only on the server.

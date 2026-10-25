@@ -35,6 +35,7 @@ interface CompanyDashboard {
   };
   trend: { date: string; attendanceRatePct: number }[];
   leaveUtilization: { department: string; type: string; days: number; utilizationPct: number | null }[];
+  insights: Insights;
   announcements: Announcement[];
   admin?: {
     payrollCost:
@@ -51,6 +52,20 @@ interface CompanyDashboard {
         };
     workforce: { gender: { label: string; count: number }[]; tenure: { label: string; count: number }[] };
     auditFeed: { id: string; createdAt: string; actorName: string; action: string; entity: string }[];
+  };
+}
+type RiskLevel = "high" | "medium" | "low";
+interface Insights {
+  attritionRisk: {
+    window: { start: string; end: string };
+    scored: number;
+    counts: Record<RiskLevel, number>;
+    employees: { employeeId: string; name: string; department: string; score: number; level: RiskLevel; factors: { factor: string; points: number; detail: string }[] }[];
+  };
+  anomalies: {
+    total: number;
+    employeesFlagged: number;
+    flags: { employeeId: string; name: string; department: string; kind: string; severity: "high" | "medium"; detail: string }[];
   };
 }
 interface PersonalDashboard {
@@ -249,6 +264,8 @@ function CompanyView() {
             </ChartPanel>
           </div>
 
+          <InsightPanels insights={data.insights} />
+
           <UtilizationPanel rows={data.leaveUtilization} />
 
           {data.admin && <AdminCharts d={data} />}
@@ -279,6 +296,88 @@ function RateTile({ label, value, tone }: { label: string; value: number | null;
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" aria-hidden>
         <div className={cx("h-full rounded-full", bar)} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
       </div>
+    </div>
+  );
+}
+
+const LEVEL_STYLE: Record<RiskLevel, string> = {
+  high: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-400/30",
+  medium: "bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
+  low: "bg-zinc-50 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-600/40",
+};
+const ANOMALY_LABEL: Record<string, string> = {
+  consecutive_absence: "Absent days in a row",
+  weekend_bridge: "Absences next to weekends",
+  missing_checkouts: "Missing check-outs",
+  absence_outlier: "Far above group absence",
+};
+
+/** Bonus insights: rule-based attrition risk and absence anomaly flags, each with its reasons. */
+function InsightPanels({ insights }: { insights: Insights }) {
+  const r = insights.attritionRisk;
+  const atRisk = r.employees.filter((e) => e.level !== "low");
+  const a = insights.anomalies;
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Panel
+        title="Attrition risk"
+        subtitle={`Last 90 days to ${r.window.end} · ${plural(r.counts.high, "high")} · ${plural(r.counts.medium, "medium")}`}
+      >
+        {atRisk.length ? (
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {atRisk.slice(0, 6).map((e) => (
+              <li key={e.employeeId} className="flex items-start gap-3 py-2.5">
+                <Avatar name={e.name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <Link href={`/employees/${e.employeeId}`} className="truncate text-sm font-medium hover:underline">
+                      {e.name}
+                    </Link>
+                    <span className="text-xs text-zinc-500">{e.department}</span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{e.factors.slice(0, 2).map((f) => f.detail).join(" · ")}</p>
+                </div>
+                <span className={cx("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ring-1 ring-inset", LEVEL_STYLE[e.level])}>
+                  {e.score} <span className="font-medium capitalize">{e.level}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            title="No one at elevated risk"
+            hint={r.scored ? `${plural(r.scored, "employee")} scored low on absence, lateness, unpaid leave and tenure.` : "Scores appear after 5 working days of attendance history."}
+          />
+        )}
+        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
+          Rule-based score out of 100: absenteeism 30 · lateness 20 · rising absence 20 · unpaid leave 15 · tenure under a year 15. High ≥ 60, medium ≥ 35.
+        </p>
+      </Panel>
+      <Panel title="Absence anomalies" subtitle={a.total ? `${plural(a.total, "flag")} for ${plural(a.employeesFlagged, "employee")} in this period` : "Unusual absence patterns in this period"}>
+        {a.flags.length ? (
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {a.flags.slice(0, 8).map((f, i) => (
+              <li key={`${f.employeeId}-${f.kind}-${i}`} className="flex items-start gap-3 py-2.5">
+                <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", f.severity === "high" ? "bg-red-500" : "bg-amber-500")} aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-2">
+                    <span className="text-sm font-medium">
+                      {f.name} <span className="font-normal text-zinc-500">· {f.department}</span>
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      {ANOMALY_LABEL[f.kind] ?? f.kind}
+                      <span className="sr-only">, {f.severity} severity</span>
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">{f.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState title="No unusual absence patterns" hint="Checks: 3+ absent days in a row, absences next to weekends, missing check-outs, absence far above the group." />
+        )}
+      </Panel>
     </div>
   );
 }

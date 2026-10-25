@@ -19,18 +19,23 @@ export const settingsSchema = z.object({
   officeLat: z.number().min(-90).max(90).nullable(),
   officeLng: z.number().min(-180).max(180).nullable(),
   radiusMeters: z.number().int().min(20).max(5000),
+  // Optional so older clients that do not send them leave the stored value alone.
+  latePenaltyEnabled: z.boolean().optional(),
+  cameraRequired: z.boolean().optional(),
 });
 
 export async function getCompanySettings(actor: Session) {
   assertRole(actor, "ADMIN", "HR");
-  const row = await db.companySettings.findUnique({ where: { id: 1 } });
-  return { ...(await getSettings()), officeLat: row?.officeLat ?? null, officeLng: row?.officeLng ?? null };
+  return getSettings();
 }
 
 /** Applied to new records only: stored attendance statuses are never recalculated. */
 export async function updateCompanySettings(actor: Session, input: z.infer<typeof settingsSchema>) {
   assertRole(actor, "ADMIN");
   const before = await db.companySettings.findUnique({ where: { id: 1 } });
+  if (input.cameraRequired && (input.officeLat == null || input.officeLng == null)) {
+    throw badRequest("Set the office latitude and longitude before requiring camera check-in.");
+  }
   const data = { ...input, weekendDays: [...new Set(input.weekendDays)].sort() };
   return db.$transaction(async (tx) => {
     const after = await tx.companySettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });

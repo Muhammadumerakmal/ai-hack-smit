@@ -34,3 +34,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [02 Redesign & QA hardening](2026-10-25-02-redesign-qa-hardening.md) | 2026-10-25 | UI redesign, security hardening, business/security test suites |
 | [03 Agents SDK migration](2026-10-25-03-agents-sdk-migration.md) | 2026-10-25 | Chat moved to `@openai/agents`, server-persisted conversations |
 | [04 CLAUDE.md & history](2026-10-25-04-claude-md-and-history.md) | 2026-10-25 | Added CLAUDE.md and this history folder |
+| [05 Bonus features](2026-10-25-05-bonus-features.md) | 2026-10-25 | Camera check-in, attrition risk, anomaly flags, late penalty, PWA |

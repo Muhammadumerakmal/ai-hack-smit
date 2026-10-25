@@ -33,7 +33,7 @@ Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgr
 - The AI is never called live in tests. Inject fakes with `setChatModel(new ScriptedModel([...]))` (chat, Agents SDK) and `setLlm(...)` (summary / smart leave). Helpers are in `tests/ai-fake.ts`. `scripts/qa-live-ai.ts` is the opt-in live check against a real provider and costs money.
 - `tests/security-matrix.test.ts` imports every `src/app/api/**/route.ts` via `import.meta.glob`. **A new route or method fails the suite until you add it to the `ACCESS` table** with its allowed roles.
 - `tests/security-integrity.test.ts.wip` is parked work and does not run.
-- The test count in README (121) is out of date. The last recorded full run was 205 passing.
+- Last full run: 243 passing (`history/` records each session's count).
 
 ## Architecture
 
@@ -44,7 +44,8 @@ Request flow: `page.tsx` (client) → `src/lib/client.ts` `api()` / `useApi()` �
 - **Auth:** the JWT carries only the user id (`sub`, 8h). Role, active state, employee link and `mustChangePassword` are re-read from the DB on every request (`src/lib/auth.ts getSession`). `src/proxy.ts` (the Next 16 replacement for `middleware.ts`) only redirects visitors with no cookie. It is not a security boundary.
 - **Writes and audit:** mutations run in `db.$transaction` and call `audit(actor, action, entity, id, {before, after}, tx)` and `notify(userIds, {...}, tx)` from `src/lib/audit.ts` with the same `tx`, so the log entry commits atomically with the change. `audit_logs` is append-only and password hashes are stripped. Leave apply/approve takes a `SELECT … FOR UPDATE` row lock on the employee so concurrent requests can't both pass the balance checks. Decisions only apply to still-PENDING rows.
 - **Dates:** calendar dates are ISO strings (`"2026-10-24"`) stored in Postgres `DATE` columns as UTC midnight (`toDate`/`toIso`). "Today", late time and clock times always come from `APP_TZ` (`todayIso`, `localClock`, `zonedDateTime` in `src/lib/dates.ts`). Don't use `new Date()` arithmetic for calendar days. Working days come from `CompanySettings.weekendDays` and the holidays table.
-- **Payroll rules** (`payroll.service.ts`): gross = 1.5 × basic, per-day deductions, proration, monthly tax from the annual slab. HR creates a draft run per month and Admin finalizes it, which locks it. Payslip PDFs are produced by `src/server/pdf.ts`.
+- **Payroll rules** (`payroll.service.ts`): gross = 1.5 × basic, per-day deductions, proration, monthly tax from the annual slab, plus the optional late penalty (`latePenaltyDays`, on only when `CompanySettings.latePenaltyEnabled`). HR creates a draft run per month and Admin finalizes it, which locks it. Payslip PDFs are produced by `src/server/pdf.ts`.
+- **Bonus features:** camera check-in rules are the pure `evaluateCameraCheckIn` in `attendance.service.ts` (Haversine in `src/lib/geo.ts`; the browser side is `components/attendance/CameraCheckIn.tsx`, MediaPipe from CDN). Attrition risk and anomaly flags are the pure `scoreAttritionRisk` / `detectAnomalies` in `insights.service.ts` over `getDayRows` output. PWA: `app/manifest.ts`, `public/sw.js` (never caches `/api`), registered by `components/shell/PwaRegister.tsx` in production only.
 
 ### AI assistant (`src/server/ai/`)
 The database is the only source of truth. The model only reads and explains data and never writes.

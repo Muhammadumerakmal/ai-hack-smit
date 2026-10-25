@@ -75,7 +75,8 @@ function prismaCode(err: unknown): string | null {
 /** Largest JSON body any route accepts (the CSV import is the biggest at up to 2 MB of text). */
 export const MAX_BODY_BYTES = 3 * 1024 * 1024;
 
-export async function readJson<S extends z.ZodType>(req: Request, schema: S): Promise<z.infer<S>> {
+/** Parse and validate a JSON body. With `emptyAs`, a request with no body at all is treated as that value. */
+export async function readJson<S extends z.ZodType>(req: Request, schema: S, emptyAs?: unknown): Promise<z.infer<S>> {
   const declared = Number(req.headers.get("content-length") ?? 0);
   if (declared > MAX_BODY_BYTES) throw new HttpError(413, "Request body is too large.", "payload_too_large");
   let text: string;
@@ -86,6 +87,7 @@ export async function readJson<S extends z.ZodType>(req: Request, schema: S): Pr
   }
   // Chunked requests carry no content-length, so check what actually arrived too.
   if (text.length > MAX_BODY_BYTES) throw new HttpError(413, "Request body is too large.", "payload_too_large");
+  if (emptyAs !== undefined && text.trim() === "") return schema.parse(emptyAs);
   let body: unknown;
   try {
     body = JSON.parse(text);

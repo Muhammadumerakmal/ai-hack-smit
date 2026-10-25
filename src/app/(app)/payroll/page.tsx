@@ -22,6 +22,8 @@ interface Run {
     net: number;
     workingDays: number;
     paidDays: number;
+    lateDays: number;
+    latePenaltyDays: number;
   }[];
 }
 interface RunListItem {
@@ -113,6 +115,11 @@ export default function PayrollPage() {
                   <Td>{p.department}</Td>
                   <Td>
                     {p.paidDays} / {p.workingDays}
+                    {p.latePenaltyDays > 0 && (
+                      <span className="block text-[11px] text-amber-700 dark:text-amber-300" title={`${p.lateDays} late days`}>
+                        incl. {p.latePenaltyDays} day late penalty
+                      </span>
+                    )}
                   </Td>
                   <Td className="tabular-nums">{money(p.gross)}</Td>
                   <Td className="tabular-nums">{money(p.deductions)}</Td>

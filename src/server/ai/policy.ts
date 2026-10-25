@@ -25,7 +25,7 @@ Attendance
 - The server records the check-in time; employees cannot set it. Only one check-in per day.
 - No attendance record and no approved leave on a working day = absent. Checked in but never checked out = missing checkout.
 - A wrong attendance record can be fixed by requesting a correction with a reason; HR approves or rejects it.
-- Camera check-in (if enabled) needs exactly one face and the phone within ${s.radiusMeters} m of the office.
+- Camera check-in needs exactly one face, a blink, a GPS fix of 100 m or better, and the phone within ${s.radiusMeters} m of the office (the server measures the distance). No photo is stored, only the distance. ${s.cameraRequired ? "The company REQUIRES camera check-in; the plain web button is turned off." : "The plain web check-in button is also allowed."} A failed camera check falls back to an attendance correction approved by HR.
 Leave
 - Leave quotas: ${quotas}.
 - Leave counts working days only; weekends and public holidays inside a leave are not deducted.
@@ -36,6 +36,7 @@ Leave
 Payroll
 - Gross salary = 1.5 × basic (basic + HRA 40% of basic + medical 10% of basic).
 - Per-day pay = gross ÷ working days in the month. Deductions: absent days + unpaid leave days + 0.5 × half days.
+- ${s.latePenaltyEnabled ? "Late penalty is ON: every 3 late days in a month deduct half a day of pay (e.g. 3–5 lates = 0.5 day, 6–8 lates = 1 day)." : "There is no late penalty: being late does not reduce pay (only half days, absences and unpaid leave do)."}
 - Joiners and leavers are paid pro rata for the days they were employed.
 - Income tax (illustrative) is worked out on the month's earned pay (gross minus deductions) × 12, using these annual slabs: up to 600,000 = 0; 600,001–1,200,000 = 5% of the amount over 600,000; 1,200,001–2,400,000 = 30,000 + 15% over 1,200,000; 2,400,001–3,600,000 = 210,000 + 25% over 2,400,000; above 3,600,000 = 510,000 + 35% over 3,600,000. Monthly tax = annual tax ÷ 12. Net pay = gross − deductions − tax.
 - HR prepares the monthly payroll draft; only Admin can finalize it, and a finalized month is locked.

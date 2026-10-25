@@ -43,6 +43,8 @@ interface Company {
   officeLat: number | null;
   officeLng: number | null;
   radiusMeters: number;
+  latePenaltyEnabled: boolean;
+  cameraRequired: boolean;
 }
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -57,6 +59,29 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
   const [f, setF] = useState<Company>(initial);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  /** Admin standing in the office: fill the office pin from this device's GPS. */
+  function fillMyLocation() {
+    if (!("geolocation" in navigator)) {
+      setMsg({ tone: "error", text: "This browser cannot share its location. Type the coordinates instead." });
+      return;
+    }
+    setLocating(true);
+    setMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setLocating(false);
+        setF((cur) => ({ ...cur, officeLat: Number(p.coords.latitude.toFixed(6)), officeLng: Number(p.coords.longitude.toFixed(6)) }));
+        setMsg({ tone: "success", text: `Location filled in (±${Math.round(p.coords.accuracy)} m). Press Save settings to keep it.` });
+      },
+      (err) => {
+        setLocating(false);
+        setMsg({ tone: "error", text: err.code === err.PERMISSION_DENIED ? "Location permission was denied." : "Your location could not be read. Type the coordinates instead." });
+      },
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
+    );
+  }
 
   const num = (k: keyof Company) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value === "" ? null : Number(e.target.value) });
 
@@ -120,6 +145,30 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
           <Input disabled={!canEdit} type="number" min={20} value={f.radiusMeters} onChange={num("radiusMeters")} />
         </Field>
         {canEdit && (
+          <div className="flex items-end">
+            <Button type="button" variant="secondary" onClick={fillMyLocation} loading={locating}>
+              Use my current location
+            </Button>
+          </div>
+        )}
+        <fieldset className="space-y-3 rounded-xl border border-zinc-200 p-4 sm:col-span-2 dark:border-zinc-800">
+          <legend className="px-1 text-sm font-medium">Optional rules</legend>
+          <Toggle
+            disabled={!canEdit}
+            checked={f.cameraRequired}
+            onChange={(v) => setF({ ...f, cameraRequired: v })}
+            label="Require camera check-in"
+            hint="Employees must check in with one face, a blink and a location inside the radius. The plain web button is turned off. Needs the office location above."
+          />
+          <Toggle
+            disabled={!canEdit}
+            checked={f.latePenaltyEnabled}
+            onChange={(v) => setF({ ...f, latePenaltyEnabled: v })}
+            label="Late penalty: 3 lates = half a day"
+            hint="Every 3 late days in a month deduct half a day of pay in that month's payroll. Shown on the payslip."
+          />
+        </fieldset>
+        {canEdit && (
           <div className="flex items-end justify-end sm:col-span-2">
             <Button type="submit" loading={busy}>
               Save settings
@@ -128,6 +177,18 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
         )}
       </form>
     </Card>
+  );
+}
+
+function Toggle({ checked, onChange, label, hint, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint: string; disabled?: boolean }) {
+  return (
+    <label className={`flex items-start gap-3 ${disabled ? "opacity-70" : "cursor-pointer"}`}>
+      <input type="checkbox" className="mt-1 h-4 w-4 accent-teal-600" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span>
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="block text-xs text-zinc-500 dark:text-zinc-400">{hint}</span>
+      </span>
+    </label>
   );
 }
 

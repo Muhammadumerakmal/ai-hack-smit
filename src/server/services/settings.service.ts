@@ -8,7 +8,11 @@ export interface Settings {
   graceMinutes: number;
   halfDayHours: number;
   weekendDays: number[];
+  officeLat: number | null;
+  officeLng: number | null;
   radiusMeters: number;
+  latePenaltyEnabled: boolean;
+  cameraRequired: boolean;
 }
 
 // Section 3 defaults, used until Admin saves company settings.
@@ -18,7 +22,11 @@ export const DEFAULT_SETTINGS: Settings = {
   graceMinutes: 15,
   halfDayHours: 5,
   weekendDays: [0, 6],
+  officeLat: null,
+  officeLng: null,
   radiusMeters: 150,
+  latePenaltyEnabled: false,
+  cameraRequired: false,
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -30,7 +38,11 @@ export async function getSettings(): Promise<Settings> {
     graceMinutes: row.graceMinutes,
     halfDayHours: row.halfDayHours,
     weekendDays: row.weekendDays,
+    officeLat: row.officeLat,
+    officeLng: row.officeLng,
     radiusMeters: row.radiusMeters,
+    latePenaltyEnabled: row.latePenaltyEnabled,
+    cameraRequired: row.cameraRequired,
   };
 }
 

@@ -18,6 +18,7 @@ import {
   zonedDateTime,
 } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
+import { haversineMeters, MAX_GPS_ACCURACY_M } from "@/lib/geo";
 import { assertRole, scopeEmployeeId, type Session } from "@/lib/session";
 import { getHolidays, getHolidaySet, getSettings, resolveDepartmentId, type Settings } from "./settings.service";
 
@@ -266,16 +267,73 @@ export function statusForDay(
   return statusForCheckIn(checkIn, s);
 }
 
-const recordOut = (r: { date: Date; checkIn: Date; checkOut: Date | null; status: AttendanceStatus; source: string }) => ({
+const recordOut = (r: {
+  date: Date;
+  checkIn: Date;
+  checkOut: Date | null;
+  status: AttendanceStatus;
+  source: string;
+  distanceMeters?: number | null;
+}) => ({
   date: toIso(r.date),
   checkIn: r.checkIn.toISOString(),
   checkOut: r.checkOut?.toISOString() ?? null,
   status: r.status,
   source: r.source,
+  distanceMeters: r.distanceMeters ?? null,
 });
 
+// ---------- Camera check-in (Section 5, bonus) ----------
+
+/** What the browser sends after its own face + blink check. No photo ever leaves the device. */
+// A body without `method` (the original web button sends {}) is a plain web check-in.
+const defaultWeb = (v: unknown) => (v && typeof v === "object" && !("method" in v) ? { ...v, method: "web" } : v);
+
+export const checkInSchema = z.preprocess(defaultWeb, z.discriminatedUnion("method", [
+  z.object({ method: z.literal("web") }),
+  z.object({
+    method: z.literal("camera"),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    /** GPS accuracy radius in metres, as reported by the Geolocation API */
+    accuracy: z.number().min(0).max(1_000_000),
+    /** faces the on-device detector saw in the frame that was accepted */
+    faces: z.number().int().min(0).max(50),
+    /** the user blinked in front of the camera (simple liveness check) */
+    liveness: z.boolean(),
+  }),
+]));
+export type CheckInInput = z.infer<typeof checkInSchema>;
+
+const cameraRejected = (message: string) => new HttpError(422, `${message} You can ask HR for an attendance correction instead.`, "camera_rejected");
+
+/**
+ * The server's decision on a camera check-in: exactly one face, a blink, a GPS fix of 100 m or better,
+ * and a Haversine distance to the office within the radius Admin set. Throws 422 with the reason otherwise.
+ */
+export function evaluateCameraCheckIn(
+  input: Extract<CheckInInput, { method: "camera" }>,
+  s: Pick<Settings, "officeLat" | "officeLng" | "radiusMeters">,
+): { distanceMeters: number; gpsAccuracy: number } {
+  if (s.officeLat == null || s.officeLng == null) {
+    throw new HttpError(409, "Camera check-in is not set up yet: Admin has not saved the office location.", "not_configured");
+  }
+  if (input.faces === 0) throw cameraRejected("No face was found in the camera.");
+  if (input.faces > 1) throw cameraRejected("More than one face was found. Only you should be in the frame.");
+  if (!input.liveness) throw cameraRejected("The blink check was not passed.");
+  const gpsAccuracy = Math.round(input.accuracy);
+  if (input.accuracy > MAX_GPS_ACCURACY_M) {
+    throw cameraRejected(`Your location is too imprecise (±${gpsAccuracy} m; ${MAX_GPS_ACCURACY_M} m or better is needed). Try near a window or turn on precise location.`);
+  }
+  const distanceMeters = Math.round(haversineMeters({ lat: input.lat, lng: input.lng }, { lat: s.officeLat, lng: s.officeLng }));
+  if (distanceMeters > s.radiusMeters) {
+    throw cameraRejected(`You are ${distanceMeters} m from the office; check-in is allowed within ${s.radiusMeters} m.`);
+  }
+  return { distanceMeters, gpsAccuracy };
+}
+
 /** Server stamps the time; one record per employee per day (a second check-in is a 409). */
-export async function checkIn(actor: Session, now: Date = new Date()) {
+export async function checkIn(actor: Session, now: Date = new Date(), input: CheckInInput = { method: "web" }) {
   const employeeId = requireEmployee(actor);
   const emp = await db.employee.findUnique({ where: { id: employeeId }, select: { status: true } });
   if (!emp || emp.status === "INACTIVE" || emp.status === "EXITED") throw forbidden("Your employee record is not active.");
@@ -284,9 +342,19 @@ export async function checkIn(actor: Session, now: Date = new Date()) {
   const existing = await db.attendance.findUnique({ where: { employeeId_date: { employeeId, date } } });
   if (existing) throw new HttpError(409, "You have already checked in today.", "conflict");
 
-  const status = statusForCheckIn(now, await getSettings());
+  const settings = await getSettings();
+  if (input.method === "web" && settings.cameraRequired) {
+    throw new HttpError(403, "Your company requires camera check-in (face + location). Use the camera check-in button.", "camera_required");
+  }
+  const camera = input.method === "camera" ? evaluateCameraCheckIn(input, settings) : null;
+
+  const status = statusForCheckIn(now, settings);
   try {
-    return recordOut(await db.attendance.create({ data: { employeeId, date, checkIn: now, status, source: "web" } }));
+    return recordOut(
+      await db.attendance.create({
+        data: { employeeId, date, checkIn: now, status, source: input.method, ...(camera ?? {}) },
+      }),
+    );
   } catch (err) {
     // Two clicks at once: the unique (employee, date) index decides.
     if ((err as { code?: string }).code === "P2002") throw new HttpError(409, "You have already checked in today.", "conflict");
@@ -323,6 +391,12 @@ export async function getToday(actor: Session, now: Date = new Date()) {
     officeStart: settings.officeStart,
     graceMinutes: settings.graceMinutes,
     halfDayHours: settings.halfDayHours,
+    camera: {
+      available: settings.officeLat != null && settings.officeLng != null,
+      required: settings.cameraRequired,
+      radiusMeters: settings.radiusMeters,
+      maxAccuracyMeters: MAX_GPS_ACCURACY_M,
+    },
     record: rec ? recordOut(rec) : null,
   };
 }
@@ -394,6 +468,8 @@ export async function getBoard(actor: Session, opts: { date: string; department?
       status: r.status as string,
       checkIn: rec?.checkIn.toISOString() ?? null,
       checkOut: rec?.checkOut?.toISOString() ?? null,
+      source: rec?.source ?? null,
+      distanceMeters: rec?.distanceMeters ?? null,
     };
   });
   // People who worked on a weekend or holiday still show up on the board.
@@ -407,6 +483,8 @@ export async function getBoard(actor: Session, opts: { date: string; department?
       status: rec.status.toLowerCase(),
       checkIn: rec.checkIn.toISOString(),
       checkOut: rec.checkOut?.toISOString() ?? null,
+      source: rec.source,
+      distanceMeters: rec.distanceMeters,
     });
   }
   out.sort((a, b) => a.name.localeCompare(b.name));
