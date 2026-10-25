@@ -19,4 +19,4 @@
 
 ## Open / next
 - The hosted Neon DB needs `npx prisma db push` again for `face_profiles` and `attendance.faceVerified`.
-- A native mobile app (optional) is not built. The README still needs the hosted URL.
+- A native mobile app (optional) is not built.

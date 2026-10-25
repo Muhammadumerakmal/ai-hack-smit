@@ -2,7 +2,7 @@
 
 AI-assisted Human Capital Management for Admin, HR and Employees (Saylani Hackathon, 24 Oct 2026).
 
-**Live app:** _add the hosted URL here before submitting_ · **Repository:** https://github.com/Muhammadumerakmal/ai-hack-smit
+**Live app:** https://ai-hack-smit.vercel.app · **Repository:** https://github.com/Muhammadumerakmal/ai-hack-smit
 
 **Stack:** Next.js 16 (App Router, full stack: REST API + UI) · PostgreSQL + Prisma · OpenAI (Agents SDK `@openai/agents` with tool calling) · JWT (httpOnly cookie) + bcrypt · Tailwind · Vitest
 
