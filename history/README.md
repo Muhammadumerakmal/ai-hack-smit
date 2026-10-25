@@ -36,3 +36,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [04 CLAUDE.md & history](2026-10-25-04-claude-md-and-history.md) | 2026-10-25 | Added CLAUDE.md and this history folder |
 | [05 Bonus features](2026-10-25-05-bonus-features.md) | 2026-10-25 | Camera check-in, attrition risk, anomaly flags, late penalty, PWA |
 | [06 PDF gap audit](2026-10-25-06-pdf-gap-audit.md) | 2026-10-25 | Face matching to an enrolled face, payroll cost by month |
+| [07 Mobile layout](2026-10-25-07-mobile-layout.md) | 2026-10-25 | Phone card layouts for payroll/payslips, month labels, compact chat button |

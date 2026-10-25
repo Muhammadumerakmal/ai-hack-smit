@@ -151,7 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="hidden sm:inline">Sign out</span>
             </button>
           </header>
-          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 sm:px-6">{children}</main>
         </div>
         <AiChatPanel role={me.role} />
       </div>

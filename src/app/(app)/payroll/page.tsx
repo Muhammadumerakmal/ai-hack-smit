@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMe } from "@/components/shell/AppShell";
 import { Button, Card, EmptyState, ErrorState, Field, Input, Loading, Modal, Notice, PageHeader, StatusBadge, Table, Td } from "@/components/ui";
-import { api, fmtDateTime, money, useApi } from "@/lib/client";
+import { api, fmtDateTime, fmtMonth, money, useApi } from "@/lib/client";
 
 interface Run {
   id: string;
@@ -77,7 +77,7 @@ export default function PayrollPage() {
             <Input type="month" value={month} max={thisMonth()} onChange={(e) => setMonth(e.target.value)} />
           </Field>
           {me.role === "HR" && (
-            <Button loading={busy} disabled={finalized || !month} onClick={() => act(() => api("/api/payroll/runs", { body: { month } }), `Draft for ${month} is ready.`)}>
+            <Button loading={busy} disabled={finalized || !month} onClick={() => act(() => api("/api/payroll/runs", { body: { month } }), `Draft for ${fmtMonth(month)} is ready.`)}>
               {run.data ? "Recompute draft" : "Create draft"}
             </Button>
           )}
@@ -96,48 +96,85 @@ export default function PayrollPage() {
         )}
       </Card>
 
-      <Card title={`Payslips · ${month}`}>
+      <Card title={`Payslips · ${fmtMonth(month)}`}>
         {run.loading ? (
           <Loading />
         ) : noRun ? (
-          <EmptyState title={`No payroll for ${month} yet`} hint={me.role === "HR" ? "Create the draft to calculate everyone's pay." : "HR has not prepared this month yet."} />
+          <EmptyState title={`No payroll for ${fmtMonth(month)} yet`} hint={me.role === "HR" ? "Create the draft to calculate everyone's pay." : "HR has not prepared this month yet."} />
         ) : run.error ? (
           <ErrorState message={run.error} onRetry={run.reload} />
         ) : run.data && run.data.payslips.length === 0 ? (
           <EmptyState title="No employees in this month" />
         ) : (
           run.data && (
-            <Table head={["Code", "Employee", "Department", "Days paid", "Gross", "Deductions", "Tax", "Net"]}>
-              {run.data.payslips.map((p) => (
-                <tr key={p.id}>
-                  <Td>{p.code}</Td>
-                  <Td>{p.name}</Td>
-                  <Td>{p.department}</Td>
-                  <Td>
-                    {p.paidDays} / {p.workingDays}
-                    {p.latePenaltyDays > 0 && (
-                      <span className="block text-[11px] text-amber-700 dark:text-amber-300" title={`${p.lateDays} late days`}>
-                        incl. {p.latePenaltyDays} day late penalty
-                      </span>
-                    )}
-                  </Td>
-                  <Td className="tabular-nums">{money(p.gross)}</Td>
-                  <Td className="tabular-nums">{money(p.deductions)}</Td>
-                  <Td className="tabular-nums">{money(p.tax)}</Td>
-                  <Td className="tabular-nums font-medium">{money(p.net)}</Td>
-                </tr>
-              ))}
-              <tr className="font-semibold">
-                <Td>Total</Td>
-                <Td>{run.data.totals.employees} employees</Td>
-                <Td />
-                <Td />
-                <Td className="tabular-nums">{money(run.data.totals.gross)}</Td>
-                <Td className="tabular-nums">{money(run.data.totals.deductions)}</Td>
-                <Td className="tabular-nums">{money(run.data.totals.tax)}</Td>
-                <Td className="tabular-nums">{money(run.data.totals.net)}</Td>
-              </tr>
-            </Table>
+            <>
+              {/* Phones: one card per payslip instead of an eight-column table */}
+              <ul className="-mx-1 space-y-2 sm:hidden">
+                {run.data.payslips.map((p) => (
+                  <li key={p.id} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium">{p.name}</span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums">{money(p.net)}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      {p.code} · {p.department} · {p.paidDays} / {p.workingDays} days paid
+                    </p>
+                    {p.latePenaltyDays > 0 && <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">incl. {p.latePenaltyDays} day late penalty ({p.lateDays} late days)</p>}
+                    <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                      <div>
+                        <dt className="text-zinc-500">Gross</dt>
+                        <dd className="tabular-nums">{money(p.gross)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-zinc-500">Deductions</dt>
+                        <dd className="tabular-nums">{money(p.deductions)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-zinc-500">Tax</dt>
+                        <dd className="tabular-nums">{money(p.tax)}</dd>
+                      </div>
+                    </dl>
+                  </li>
+                ))}
+                <li className="flex items-baseline justify-between rounded-xl bg-zinc-50 p-3 text-sm font-semibold dark:bg-zinc-900">
+                  <span>Total · {run.data.totals.employees} employees</span>
+                  <span className="tabular-nums">{money(run.data.totals.net)} net</span>
+                </li>
+              </ul>
+              <div className="hidden sm:block">
+                <Table head={["Code", "Employee", "Department", "Days paid", "Gross", "Deductions", "Tax", "Net"]}>
+                  {run.data.payslips.map((p) => (
+                    <tr key={p.id}>
+                      <Td>{p.code}</Td>
+                      <Td>{p.name}</Td>
+                      <Td>{p.department}</Td>
+                      <Td>
+                        {p.paidDays} / {p.workingDays}
+                        {p.latePenaltyDays > 0 && (
+                          <span className="block text-[11px] text-amber-700 dark:text-amber-300" title={`${p.lateDays} late days`}>
+                            incl. {p.latePenaltyDays} day late penalty
+                          </span>
+                        )}
+                      </Td>
+                      <Td className="tabular-nums">{money(p.gross)}</Td>
+                      <Td className="tabular-nums">{money(p.deductions)}</Td>
+                      <Td className="tabular-nums">{money(p.tax)}</Td>
+                      <Td className="tabular-nums font-medium">{money(p.net)}</Td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold">
+                    <Td>Total</Td>
+                    <Td>{run.data.totals.employees} employees</Td>
+                    <Td />
+                    <Td />
+                    <Td className="tabular-nums">{money(run.data.totals.gross)}</Td>
+                    <Td className="tabular-nums">{money(run.data.totals.deductions)}</Td>
+                    <Td className="tabular-nums">{money(run.data.totals.tax)}</Td>
+                    <Td className="tabular-nums">{money(run.data.totals.net)}</Td>
+                  </tr>
+                </Table>
+              </div>
+            </>
           )
         )}
       </Card>
@@ -150,44 +187,67 @@ export default function PayrollPage() {
         ) : !runs.data?.items.length ? (
           <EmptyState title="No payroll runs yet" />
         ) : (
-          <Table head={["Month", "Status", "Employees", "Gross", "Net", ""]}>
-            {runs.data.items.map((r) => (
-              <tr key={r.id}>
-                <Td>{r.month}</Td>
-                <Td>
-                  <StatusBadge status={r.status} />
-                </Td>
-                <Td>{r.employees}</Td>
-                <Td className="tabular-nums">{money(r.totalGross)}</Td>
-                <Td className="tabular-nums">{money(r.totalNet)}</Td>
-                <Td>
-                  <Button size="sm" variant="secondary" onClick={() => setMonth(r.month)}>
-                    View
-                  </Button>
-                </Td>
-              </tr>
-            ))}
-          </Table>
+          <>
+            <ul className="-mx-1 space-y-2 sm:hidden">
+              {runs.data.items.map((r) => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => setMonth(r.month)}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 p-3 text-left hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{fmtMonth(r.month)}</span>
+                      <span className="block text-xs text-zinc-500">
+                        {r.employees} employees · net {money(r.totalNet)}
+                      </span>
+                    </span>
+                    <StatusBadge status={r.status} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden sm:block">
+              <Table head={["Month", "Status", "Employees", "Gross", "Net", ""]}>
+                {runs.data.items.map((r) => (
+                  <tr key={r.id}>
+                    <Td>{fmtMonth(r.month)}</Td>
+                    <Td>
+                      <StatusBadge status={r.status} />
+                    </Td>
+                    <Td>{r.employees}</Td>
+                    <Td className="tabular-nums">{money(r.totalGross)}</Td>
+                    <Td className="tabular-nums">{money(r.totalNet)}</Td>
+                    <Td>
+                      <Button size="sm" variant="secondary" onClick={() => setMonth(r.month)}>
+                        View
+                      </Button>
+                    </Td>
+                  </tr>
+                ))}
+              </Table>
+            </div>
+          </>
         )}
       </Card>
 
       <Modal
         open={confirmOpen}
-        title={`Finalize payroll for ${month}?`}
+        title={`Finalize payroll for ${fmtMonth(month)}?`}
         onClose={() => setConfirmOpen(false)}
         footer={
           <>
             <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button variant="danger" loading={busy} onClick={() => act(() => api(`/api/payroll/runs/${month}/finalize`, { method: "POST" }), `Payroll for ${month} is finalized and locked.`)}>
+            <Button variant="danger" loading={busy} onClick={() => act(() => api(`/api/payroll/runs/${month}/finalize`, { method: "POST" }), `Payroll for ${fmtMonth(month)} is finalized and locked.`)}>
               Finalize
             </Button>
           </>
         }
       >
         <p className="text-sm">
-          This locks {month}: payslips can no longer be recomputed or changed, and every employee is notified that their payslip is ready.
+          This locks {fmtMonth(month)}: payslips can no longer be recomputed or changed, and every employee is notified that their payslip is ready.
         </p>
       </Modal>
     </div>

@@ -143,12 +143,12 @@ export function BarChart({ items, max, format = (n) => String(n), empty }: { ite
             onFocus={() => setHover(i.label)}
             onBlur={() => setHover(null)}
             className={cx(
-              "grid min-h-10 grid-cols-[minmax(0,34%)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/50",
+              "grid min-h-10 grid-cols-[minmax(0,38%)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-teal-500/50",
               hover === i.label && "bg-zinc-50 dark:bg-zinc-800/50",
             )}
           >
             <span className="min-w-0">
-              <span className="block truncate text-[13px] capitalize text-zinc-700 dark:text-zinc-300" title={i.label}>
+              <span className="line-clamp-2 break-words text-[13px] capitalize leading-snug text-zinc-700 dark:text-zinc-300" title={i.label}>
                 {i.label}
               </span>
               {i.note && <span className="block truncate text-[11px] text-zinc-400">{i.note}</span>}
@@ -209,10 +209,8 @@ export function RankedList({ items, unit }: { items: { name: string; sub: string
           <Avatar name={i.name} size="sm" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{i.name}</span>
-            <span className="mt-1 flex items-center gap-2">
-              <span className="block h-1.5 rounded-r-[4px]" style={{ width: `${Math.max(6, (i.value / top) * 100)}%`, maxWidth: "70%", background: SERIES }} aria-hidden />
-              <span className="truncate text-[11px] text-zinc-500">{i.sub}</span>
-            </span>
+            <span className="block truncate text-[11px] text-zinc-500">{i.sub}</span>
+            <span className="mt-1 block h-1.5 rounded-r-[4px]" style={{ width: `${Math.max(6, (i.value / top) * 100)}%`, background: SERIES }} aria-hidden />
           </span>
           <span className="shrink-0 text-right">
             <span className="block text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{i.value}</span>

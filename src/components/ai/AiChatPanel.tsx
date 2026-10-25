@@ -60,9 +60,12 @@ export function AiChatPanel({ role, defaultOpen = false }: { role: Role; default
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-full bg-violet-600 px-4 py-3 text-sm font-medium text-white shadow-lg hover:bg-violet-700"
+        aria-label="Ask the assistant"
+        title="Ask the assistant"
+        className="fixed bottom-4 right-4 z-40 flex h-12 w-12 items-center justify-center gap-2 rounded-full bg-violet-600 text-sm font-medium text-white shadow-lg shadow-violet-900/20 hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 sm:h-auto sm:w-auto sm:px-4 sm:py-3"
       >
-        <span aria-hidden>✦</span> Ask the assistant
+        <span aria-hidden className="text-base sm:text-sm">✦</span>
+        <span className="hidden sm:inline">Ask the assistant</span>
       </button>
     );
   }

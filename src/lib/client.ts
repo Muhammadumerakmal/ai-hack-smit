@@ -78,6 +78,12 @@ export const money = (n: number | null | undefined) =>
 export const fmtDate = (iso: string | null | undefined) =>
   iso ? new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }) : "—";
 
+/** "2026-10" → "October 2026" */
+export const fmtMonth = (month: string | null | undefined) =>
+  month && /^\d{4}-\d{2}$/.test(month)
+    ? new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" })
+    : (month ?? "—");
+
 export const fmtTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" }) : "—";
 
