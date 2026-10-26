@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { humanize } from "@/components/ops/format";
 
 // Shared UI kit. Every screen uses these so spacing, colours and states stay consistent.
 // Theme: teal primary (brief colours), violet only for AI, zinc neutrals, dark mode via `dark:`.
@@ -115,7 +116,7 @@ export function StatusBadge({ status }: { status: string }) {
     : ["absent", "rejected", "inactive", "exited", "deactivated"].includes(s) ? "red"
     : ["on_leave", "cancelled", "holiday"].includes(s) ? "blue"
     : "gray";
-  return <Badge color={color}>{s.replace(/_/g, " ")}</Badge>;
+  return <Badge color={color}>{humanize(s)}</Badge>;
 }
 
 export function Table({ head, children, empty }: { head: ReactNode[]; children: ReactNode; empty?: ReactNode }) {

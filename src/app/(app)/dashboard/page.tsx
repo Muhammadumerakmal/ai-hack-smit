@@ -9,6 +9,7 @@ import { BarChart, DataTable, RankedList, TrendChart, type BarItem } from "@/com
 import { FilterBar, rangeLabel, todayIsoLocal, type Filters } from "@/components/dashboard/FilterBar";
 import { Avatar, cx, DashboardSkeleton, DIcon, Kpi, LinkArrow, Meter, Panel, Skeleton, timeAgo, ViewToggle } from "@/components/dashboard/primitives";
 import { useMe } from "@/components/shell/AppShell";
+import { labelCase } from "@/components/ops/format";
 import { EmptyState, ErrorState } from "@/components/ui";
 import { money, qs, useApi } from "@/lib/client";
 
@@ -411,7 +412,7 @@ function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"]
                 {used.map((u) => (
                   <tr key={`${u.department}-${u.type}`}>
                     <td className="py-2.5 pr-3 font-medium">{u.department}</td>
-                    <td className="px-3 py-2.5 capitalize text-zinc-600 dark:text-zinc-300">{u.type}</td>
+                    <td className="px-3 py-2.5 text-zinc-600 dark:text-zinc-300">{labelCase(u.type)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{u.days}</td>
                     <td className="py-2.5 pl-3">
                       <UtilBar pct={u.utilizationPct} />
@@ -426,8 +427,8 @@ function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"]
               <li key={`${u.department}-${u.type}`} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-sm font-medium">{u.department}</span>
-                  <span className="shrink-0 text-xs capitalize text-zinc-500">
-                    {u.type} · {plural(u.days, "day")}
+                  <span className="shrink-0 text-xs text-zinc-500">
+                    {labelCase(u.type)} · {plural(u.days, "day")}
                   </span>
                 </div>
                 <div className="mt-2">

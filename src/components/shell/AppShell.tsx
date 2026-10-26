@@ -120,8 +120,19 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
-          <div className="border-t border-zinc-200/80 px-5 py-4 text-[11px] text-zinc-400 dark:border-zinc-800/80 dark:text-zinc-500">
-            {me.companyName} · <span className="font-medium text-zinc-600 dark:text-zinc-300">{roleLabel(me.role)}</span> workspace
+          <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
+            <div className="flex items-center gap-3 rounded-xl bg-zinc-50 px-3 py-2.5 ring-1 ring-inset ring-zinc-200/70 dark:bg-zinc-900/60 dark:ring-zinc-800">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-800 dark:bg-teal-500/15 dark:text-teal-300" aria-hidden>
+                {initials(me.name)}
+              </span>
+              <div className="min-w-0 flex-1 leading-tight">
+                <p className="truncate text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{me.name}</p>
+                <p className="truncate text-[11px] text-zinc-500">{me.email}</p>
+              </div>
+              <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700 ring-1 ring-inset ring-teal-600/20 dark:bg-zinc-950 dark:text-teal-300">
+                {roleLabel(me.role)}
+              </span>
+            </div>
           </div>
         </aside>
         {menuOpen && <div className="fixed inset-0 z-20 bg-zinc-950/40 backdrop-blur-[2px] lg:hidden" onClick={() => setMenuOpen(false)} />}
@@ -131,6 +142,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-300 dark:hover:bg-zinc-900" onClick={() => setMenuOpen(true)} aria-label="Open menu">
               <Icon name="menu" className="h-5 w-5" />
             </button>
+            <Link href="/dashboard" className="flex items-center gap-2 lg:hidden" aria-label="HCM Lite dashboard">
+              <LogoMark className="h-7 w-7" />
+              <span className="hidden text-sm font-semibold tracking-tight min-[400px]:inline">HCM Lite</span>
+            </Link>
             <div className="flex-1" />
             <NotificationBell />
             <div className="ml-1 flex items-center gap-2.5 border-l border-zinc-200 pl-3 dark:border-zinc-800">
@@ -153,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 sm:px-6">{children}</main>
         </div>
-        <AiChatPanel role={me.role} />
+        <AiChatPanel role={me.role} name={me.name} />
       </div>
     </MeContext.Provider>
   );

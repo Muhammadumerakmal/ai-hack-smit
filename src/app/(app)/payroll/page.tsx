@@ -42,12 +42,17 @@ export default function PayrollPage() {
   const me = useMe();
   const [month, setMonth] = useState(thisMonth());
   const runs = useApi<{ items: RunListItem[] }>("/api/payroll/runs");
-  const run = useApi<Run>(month ? `/api/payroll/runs/${month}` : null);
+  // Only ask for a month that has a run; the list already says which ones do (no 404 per empty month).
+  const listed = !!runs.data?.items.some((r) => r.month === month);
+  const runApi = useApi<Run>(month && listed ? `/api/payroll/runs/${month}` : null);
+  // Never show another month's run while the selected one loads.
+  const run = { ...runApi, data: runApi.data?.month === month ? runApi.data : null };
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const noRun = run.error?.startsWith("No payroll run");
+  const noRun = (!!runs.data && !listed) || !!run.error?.startsWith("No payroll run");
+  const runLoading = (runs.loading && !runs.data) || (listed && !run.data && !run.error);
 
   async function act(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
@@ -97,12 +102,12 @@ export default function PayrollPage() {
       </Card>
 
       <Card title={`Payslips · ${fmtMonth(month)}`}>
-        {run.loading ? (
+        {runLoading ? (
           <Loading />
         ) : noRun ? (
           <EmptyState title={`No payroll for ${fmtMonth(month)} yet`} hint={me.role === "HR" ? "Create the draft to calculate everyone's pay." : "HR has not prepared this month yet."} />
-        ) : run.error ? (
-          <ErrorState message={run.error} onRetry={run.reload} />
+        ) : run.error || runs.error ? (
+          <ErrorState message={run.error ?? runs.error ?? ""} onRetry={() => (run.error ? run.reload() : runs.reload())} />
         ) : run.data && run.data.payslips.length === 0 ? (
           <EmptyState title="No employees in this month" />
         ) : (

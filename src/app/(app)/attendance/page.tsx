@@ -227,7 +227,7 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
                   </span>
                   {!quiet && (
                     <span className="mt-auto hidden min-w-0 text-left sm:block">
-                      <span className="flex items-center gap-1 truncate text-[11px] font-medium capitalize text-zinc-700 dark:text-zinc-200">
+                      <span className="flex items-center gap-1 truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
                         <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", DOT[tone])} aria-hidden />
                         <span className="truncate">{d.holiday ?? humanize(kind)}</span>
                       </span>

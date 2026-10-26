@@ -345,7 +345,7 @@ function AwayPanel({ items, loading }: { items: LeaveRow[]; loading: boolean }) 
             return (
               <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                 <PersonCell name={l.employee.name} meta={`${l.typeName} · ${fmtRange(l.start, l.end)}`} />
-                {now ? <StatusPill status="on_leave" label="Away today" /> : <span className="shrink-0 text-xs text-zinc-500">{plural(l.days, "day")}</span>}
+                <span className="shrink-0">{now ? <StatusPill status="on_leave" label="Today" /> : <span className="text-xs text-zinc-500">{plural(l.days, "day")}</span>}</span>
               </li>
             );
           })}

@@ -66,3 +66,6 @@ export const initials = (name: string) =>
     .join("") || "?";
 
 export const humanize = (s: string) => s.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+
+/** Sentence case for system values ("not set" → "Not set"); names people typed ("iOS team") stay as written. */
+export const labelCase = (s: string) => (s === s.toLowerCase() ? humanize(s) : s);

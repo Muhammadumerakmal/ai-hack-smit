@@ -38,3 +38,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [06 PDF gap audit](2026-10-25-06-pdf-gap-audit.md) | 2026-10-25 | Face matching to an enrolled face, payroll cost by month |
 | [07 Mobile layout](2026-10-25-07-mobile-layout.md) | 2026-10-25 | Phone card layouts for payroll/payslips, month labels, compact chat button |
 | [08 Demo-run fixes & Leave UI](2026-10-25-08-demo-run-fixes-leave-ui.md) | 2026-10-25 | Off-day check-ins in today KPIs, "who is on leave" in a period, Leave page redesign, week bars |
+| [09 Bug fixes & UI polish](2026-10-26-01-bugfix-ui-polish.md) | 2026-10-26 | Payroll stale-run fix, faster CSV import, sentence-case labels, chat panel and AI summary redesign |

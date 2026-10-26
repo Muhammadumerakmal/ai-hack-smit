@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { labelCase } from "@/components/ops/format";
 import { Avatar, cx } from "./primitives";
 
 // Lightweight inline-SVG / HTML charts (no chart library). Follows the dataviz method:
@@ -148,8 +149,8 @@ export function BarChart({ items, max, format = (n) => String(n), empty }: { ite
             )}
           >
             <span className="min-w-0">
-              <span className="line-clamp-2 break-words text-[13px] capitalize leading-snug text-zinc-700 dark:text-zinc-300" title={i.label}>
-                {i.label}
+              <span className="line-clamp-2 break-words text-[13px] leading-snug text-zinc-700 dark:text-zinc-300" title={i.label}>
+                {labelCase(i.label)}
               </span>
               {i.note && <span className="block truncate text-[11px] text-zinc-400">{i.note}</span>}
             </span>
@@ -186,8 +187,8 @@ export function DataTable({ rows, head }: { rows: (string | number)[][]; head: s
           {rows.map((r, ri) => (
             <tr key={ri}>
               {r.map((c, ci) => (
-                <td key={ci} className={cx("px-3 py-2", ci > 0 ? "text-right tabular-nums" : "capitalize text-zinc-700 dark:text-zinc-300")}>
-                  {c}
+                <td key={ci} className={cx("px-3 py-2", ci > 0 ? "text-right tabular-nums" : "text-zinc-700 dark:text-zinc-300")}>
+                  {ci === 0 && typeof c === "string" ? labelCase(c) : c}
                 </td>
               ))}
             </tr>

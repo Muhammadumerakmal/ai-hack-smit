@@ -1,6 +1,6 @@
 import type { EmployeeStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { audit } from "@/lib/audit";
+import { audit, auditEntry } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { isIsoDate, toDate, toIso, todayIso } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
@@ -388,11 +388,44 @@ export async function importEmployeesCsv(actor: Session, csv: string, dryRun: bo
   // Hash every temporary password first; the transaction then only does fast inserts.
   const creds: TempCredentials[] = [];
   for (let i = 0; i < valid.length; i += 8) creds.push(...(await Promise.all(valid.slice(i, i + 8).map(() => newTempCredentials()))));
+  // Bulk inserts: one statement each for logins, employees and audit rows instead of three per row,
+  // so a few hundred rows stay far inside the transaction timeout on a remote database.
   const created = await db.$transaction(async (tx) => {
-    const out = [];
-    for (const [i, e] of valid.entries()) out.push(await createEmployeeTx(tx, actor, e, creds[i]));
-    await audit(actor, "import", "employee", null, { after: { count: out.length } }, tx);
-    return out;
+    const users = await tx.user.createManyAndReturn({
+      data: valid.map((e, i) => ({ email: e.email, name: e.fullName, role: "EMPLOYEE" as const, passwordHash: creds[i].passwordHash, mustChangePassword: true })),
+      select: { id: true, email: true },
+    });
+    const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
+    const emps = await tx.employee.createManyAndReturn({
+      data: valid.map((e) => ({
+        code: e.code!, // required CSV column, checked above
+        fullName: e.fullName,
+        email: e.email,
+        phone: e.phone || null,
+        address: null,
+        gender: e.gender || null,
+        departmentId: e.departmentId,
+        designationId: e.designationId || null,
+        joinDate: toDate(e.joinDate),
+        status: e.status,
+        basicSalary: e.basicSalary,
+        userId: userIdByEmail.get(e.email)!,
+      })),
+    });
+    const byCode = new Map(emps.map((emp) => [emp.code, emp]));
+    await tx.auditLog.createMany({
+      data: [
+        ...valid.map((e) => {
+          const emp = byCode.get(e.code!)!;
+          return auditEntry(actor, "create", "employee", emp.id, { after: { ...emp, basicSalary: e.basicSalary } });
+        }),
+        auditEntry(actor, "import", "employee", null, { after: { count: valid.length } }),
+      ],
+    });
+    return valid.map((e, i) => {
+      const emp = byCode.get(e.code!)!;
+      return { id: emp.id, code: emp.code, email: emp.email, fullName: emp.fullName, tempPassword: creds[i].tempPassword };
+    });
   }, { timeout: 60_000 });
   return { dryRun: false, total, valid: valid.length, errors: [], created };
 }

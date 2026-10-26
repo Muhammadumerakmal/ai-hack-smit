@@ -82,7 +82,7 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
             <OpsIcon name="clock" className="h-3.5 w-3.5" /> Time clock · PKT
           </p>
           {rec ? (
-            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium capitalize ring-1 ring-inset ring-white/20">
+            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-white/20">
               {done ? "Day complete" : "On the clock"}
             </span>
           ) : (

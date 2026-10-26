@@ -13,18 +13,27 @@ export async function audit(
   change: { before?: unknown; after?: unknown } = {},
   tx: Tx = db,
 ) {
-  await tx.auditLog.create({
-    data: {
-      actorId: actor.userId,
-      actorRole: actor.role,
-      actorName: actor.name ?? "",
-      action,
-      entity,
-      entityId,
-      before: toJson(change.before),
-      after: toJson(change.after),
-    },
-  });
+  await tx.auditLog.create({ data: auditEntry(actor, action, entity, entityId, change) });
+}
+
+/** One audit row, for bulk writes with `auditLog.createMany` (e.g. CSV import). Same shape as `audit()`. */
+export function auditEntry(
+  actor: Session,
+  action: string,
+  entity: string,
+  entityId: string | null,
+  change: { before?: unknown; after?: unknown } = {},
+): Prisma.AuditLogCreateManyInput {
+  return {
+    actorId: actor.userId,
+    actorRole: actor.role,
+    actorName: actor.name ?? "",
+    action,
+    entity,
+    entityId,
+    before: toJson(change.before),
+    after: toJson(change.after),
+  };
 }
 
 /** Decimal and Date values → plain JSON; never store password hashes. */

@@ -46,14 +46,16 @@ export function useApi<T>(path: string | null) {
   const [tick, setTick] = useState(0);
   const key = path ? `${path}#${tick}` : null;
   // `key` records which request the stored result belongs to; loading = we have not got this key's result yet.
-  const [state, setState] = useState<{ key: string | null; data: T | null; error: string | null }>({ key: null, data: null, error: null });
+  const [state, setState] = useState<{ key: string | null; path: string | null; data: T | null; error: string | null }>({ key: null, path: null, data: null, error: null });
 
   useEffect(() => {
     if (!path || !key) return;
     let cancelled = false;
     api<T>(path)
-      .then((data) => !cancelled && setState({ key, data, error: null }))
-      .catch((e: Error) => !cancelled && setState((s) => ({ key, data: s.data, error: e.message })));
+      .then((data) => !cancelled && setState({ key, path, data, error: null }))
+      // A failed reload of the same resource keeps its last data; a failed request for a different
+      // resource must not (e.g. last month's finalized payroll run showing under a month with no run).
+      .catch((e: Error) => !cancelled && setState((s) => ({ key, path, data: s.path === path ? s.data : null, error: e.message })));
     return () => {
       cancelled = true;
     };

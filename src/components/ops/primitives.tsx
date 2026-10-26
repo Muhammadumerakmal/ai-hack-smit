@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { addMonths, initials, monthLabel } from "./format";
+import { addMonths, initials, labelCase, monthLabel } from "./format";
 import { OpsIcon, type OpsIconName } from "./icons";
 
 // Building blocks for the operations screens. They sit on top of the shared UI kit's look
@@ -65,9 +65,9 @@ const PILL: Record<Tone, string> = {
 export function StatusPill({ status, label }: { status: string; label?: string }) {
   const tone = toneOf(status);
   return (
-    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium capitalize ring-1 ring-inset", PILL[tone])}>
+    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", PILL[tone])}>
       <span className={cx("h-1.5 w-1.5 rounded-full", DOT[tone])} aria-hidden />
-      {label ?? status.toLowerCase().replace(/_/g, " ")}
+      {labelCase(label ?? status.toLowerCase())}
     </span>
   );
 }
