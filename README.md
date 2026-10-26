@@ -11,7 +11,7 @@ AI-assisted Human Capital Management for Admin, HR and Employees (Saylani Hackat
 ```bash
 npm install
 cp .env.example .env            # set AI_API_KEY and JWT_SECRET (any long random string)
-docker compose up -d            # local Postgres on :5432
+docker compose up -d            # local Postgres on :5432 (local only; the hosted app uses Neon, not Docker)
 npx prisma db push              # create the tables
 npm run dev                     # http://localhost:3000
 ```
@@ -21,6 +21,8 @@ npm run dev                     # http://localhost:3000
 **AI key:** set `AI_API_KEY` (OpenAI) in `.env`, or in the host's environment settings. Only the server reads it. `AI_MODEL` defaults to `gpt-4.1-mini`. Any OpenAI-compatible provider works via `AI_BASE_URL`.
 
 **Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
+
+**Fresh start for judging:** the app is single-company, and the first-run setup only appears on an empty database. To give judges a link that starts from setup without touching an existing company, point a second Vercel project (same repo, `main` branch) at its own empty Neon database and run `npx prisma db push` against it once. Each database keeps its own company, logins and data. Accounts are never self-registered: setup creates the Admin, the Admin creates HR logins, and HR registering an employee creates that employee's login.
 
 **Tests:** `npm test` runs 262 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
 

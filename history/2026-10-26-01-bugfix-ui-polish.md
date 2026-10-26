@@ -21,4 +21,5 @@
 ## Open / next
 - `npm run build` fails on Windows while `next dev` is running, because the dev server locks the Prisma engine DLL during `prisma generate`. Stop the dev server first, or run `npx next build`.
 - `vitest run tests/biz-perf.db.test.ts -t "CSV"` hung once for about 12 minutes while the unfiltered file passed in 20 s. It wasn't reproduced or investigated.
-- Unchanged from session 08: the hosted Neon DB needs `prisma db push` for the face tables and opens on login, not first-run setup.
+- The hosted Neon DB already matches the schema: a read-only `prisma migrate diff` showed an empty migration, so the face-table item from sessions 06 and 08 is done. It already has a company (Omar as Admin, Ali as HR, and employees), so the live link opens on login. The owner decided to keep that data. For judging, point a second Vercel project at its own empty Neon database so that link starts from first-run setup (see README, "Fresh start for judging"). Open role self-signup was rejected because it would let anyone become Admin.
+- Docker stays: it's only used for local development and the test suite, and neither Vercel nor Neon uses it.
