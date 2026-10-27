@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
-HCM Lite is an AI-assisted HR system (Admin / HR / Employee) built for the Saylani Hackathon. It's a single Next.js 16 App Router app that serves both the REST API and the UI. It uses PostgreSQL via Prisma 6, the OpenAI Agents SDK (`@openai/agents`) for the assistant, JWT in an httpOnly cookie (`token`) with bcrypt, Tailwind 4, and Vitest 4. `README.md` has the module checklist (M1–M9) and the role descriptions.
+HCM Lite is an AI-assisted HR system (Admin / HR / Employee). It's a single Next.js 16 App Router app that serves both the REST API and the UI. It uses PostgreSQL via Prisma 6, the OpenAI Agents SDK (`@openai/agents`) for the assistant, JWT in an httpOnly cookie (`token`) with bcrypt, Tailwind 4, and Vitest 4. `README.md` has the module checklist (M1–M9) and the role descriptions.
 
 ## Commands
 

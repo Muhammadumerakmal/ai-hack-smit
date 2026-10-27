@@ -70,7 +70,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{subtitle}</p>}
           <div className="mt-7">{children}</div>
-          <p className="mt-10 text-[11px] text-zinc-500 dark:text-zinc-400">Saylani Hackathon 2026 · HCM Lite</p>
+          <p className="mt-10 text-[11px] text-zinc-500 dark:text-zinc-400">HCM Lite · AI-assisted HR for Admin, HR and Employees</p>
         </div>
       </section>
     </main>

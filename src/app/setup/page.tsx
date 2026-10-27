@@ -58,7 +58,7 @@ export default function SetupPage() {
       <form onSubmit={submit} className="space-y-4">
         {error && <Notice tone="error">{error}</Notice>}
         <Field name="companyName" label="Company name">
-          <Input required minLength={2} value={form.companyName} onChange={set("companyName")} placeholder="e.g. Saylani Tech" />
+          <Input required minLength={2} value={form.companyName} onChange={set("companyName")} placeholder="e.g. Acme Corp" />
         </Field>
         <Field name="adminName" label="Your name (Admin)">
           <Input required minLength={2} value={form.adminName} onChange={set("adminName")} />

@@ -1,6 +1,6 @@
 # HCM Lite
 
-AI-assisted Human Capital Management for Admin, HR and Employees (Saylani Hackathon, 24 Oct 2026).
+AI-assisted Human Capital Management for Admin, HR and Employees.
 
 **Live app:** https://ai-hack-smit.vercel.app · **Repository:** https://github.com/Muhammadumerakmal/ai-hack-smit
 
