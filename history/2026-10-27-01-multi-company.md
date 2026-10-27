@@ -23,6 +23,7 @@ The owner wants the live database to keep its company (Omar as Admin, Ali as HR,
 - `prisma db push --force-reset` is refused for AI agents without consent, so local test databases were created fresh (`hcm_mt`) instead of reset.
 
 ## Open / next
-- **The live Neon database is not migrated yet.** It needs the owner's go-ahead (reading or writing production is blocked without it). Steps: back up → `1-add-company-columns.sql` → push to `main` → `2-drop-temporary-defaults.sql` → check. Pushing the code before step 1 would break the live site.
+- **Live Neon migrated on 2026-10-27** with the owner's go-ahead: a read-only check confirmed the live schema matched the pre-migration schema, then 1-add-company-columns.sql → push 50f3338 (Vercel live after about 60 s) → 2-drop-temporary-defaults.sql. Row counts were identical before and after (users 9, employees 5, audit_logs 47, …), 0 rows ended up outside company 1 ("umer akmal"), the next company id is 2, and `migrate diff` against the new schema was empty. The owner skipped the pg_dump backup.
+- The Neon password was pasted into the chat during the migration, so it should be rotated (Neon → Roles → reset password), then `DATABASE_URL` updated in Vercel and `.env`.
 - The company throttle is in memory per server instance, like the login throttle.
 - The local `hcm` dev DB is migrated and now holds a test "Judge Co" (company 2) next to Demo Co.
