@@ -1,7 +1,7 @@
 # Responsive layout fixes (all screens, 360–1280 px)
 
 - **Date:** 2026-10-27
-- **Commits:** most of this landed inside `3b246f2` ("Forms, keyboard and chat accessibility"), because a parallel session committed the whole tree while this work was in progress. The `ui.tsx` Tabs and Users page changes are uncommitted.
+- **Commits:** most of this landed inside `3b246f2` ("Forms, keyboard and chat accessibility"), because a parallel session committed the whole tree while this work was in progress. The `ui.tsx` Tabs and Users page changes are in `ba8a9e3`.
 - **Tests:** UI-only (class names). `tsc --noEmit` and eslint on the changed files are clean. The full suite was not run.
 
 ## How it was checked
