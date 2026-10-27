@@ -2,6 +2,7 @@ import type { EmployeeStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { audit, auditEntry } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { isIsoDate, toDate, toIso, todayIso } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
 import { hashPassword, temporaryPassword } from "@/lib/password";
@@ -61,7 +62,7 @@ async function nextEmployeeCode(tx: Prisma.TransactionClient): Promise<string> {
   const count = await tx.employee.count();
   for (let n = count + 1; ; n++) {
     const code = `E${String(n).padStart(4, "0")}`;
-    if (!(await tx.employee.findUnique({ where: { code } }))) return code;
+    if (!(await tx.employee.findUnique({ where: { companyId_code: { companyId: currentCompanyId(), code } } }))) return code;
   }
 }
 
@@ -81,10 +82,11 @@ async function newTempCredentials(): Promise<TempCredentials> {
 async function createEmployeeTx(tx: Prisma.TransactionClient, actor: Session, input: NewEmployee, creds?: TempCredentials) {
   const { tempPassword, passwordHash } = creds ?? (await newTempCredentials());
   const user = await tx.user.create({
-    data: { email: input.email, name: input.fullName, role: "EMPLOYEE", passwordHash, mustChangePassword: true },
+    data: { companyId: currentCompanyId(), email: input.email, name: input.fullName, role: "EMPLOYEE", passwordHash, mustChangePassword: true },
   });
   const emp = await tx.employee.create({
     data: {
+      companyId: currentCompanyId(),
       code: input.code || (await nextEmployeeCode(tx)),
       fullName: input.fullName,
       email: input.email,
@@ -392,12 +394,13 @@ export async function importEmployeesCsv(actor: Session, csv: string, dryRun: bo
   // so a few hundred rows stay far inside the transaction timeout on a remote database.
   const created = await db.$transaction(async (tx) => {
     const users = await tx.user.createManyAndReturn({
-      data: valid.map((e, i) => ({ email: e.email, name: e.fullName, role: "EMPLOYEE" as const, passwordHash: creds[i].passwordHash, mustChangePassword: true })),
+      data: valid.map((e, i) => ({ companyId: currentCompanyId(), email: e.email, name: e.fullName, role: "EMPLOYEE" as const, passwordHash: creds[i].passwordHash, mustChangePassword: true })),
       select: { id: true, email: true },
     });
     const userIdByEmail = new Map(users.map((u) => [u.email, u.id]));
     const emps = await tx.employee.createManyAndReturn({
       data: valid.map((e) => ({
+        companyId: currentCompanyId(),
         code: e.code!, // required CSV column, checked above
         fullName: e.fullName,
         email: e.email,

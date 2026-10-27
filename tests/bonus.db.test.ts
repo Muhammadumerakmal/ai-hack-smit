@@ -143,6 +143,7 @@ describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
       const weekdays = eachDay(start, end).filter((d) => ![0, 6].includes(weekdayOf(d)));
       await db.attendance.createMany({
         data: weekdays.slice(0, 7).map((d) => ({
+          companyId: 1,
           employeeId: ids.E002,
           date: toDate(d),
           checkIn: new Date(`${d}T09:45:00+05:00`),
@@ -206,7 +207,7 @@ describe.skipIf(!hasDb)("bonus features (DB + routes)", () => {
         }
       }
       await db.attendance.deleteMany({ where: { date: { gte: toDate(windowStart), lte: toDate(end) } } });
-      await db.attendance.createMany({ data });
+      await db.attendance.createMany({ data: data.map((r) => ({ companyId: 1, ...r })) });
     });
 
     it("scores Bilal high risk with the reasons, everyone else low", async () => {

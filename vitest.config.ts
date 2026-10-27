@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    setupFiles: ["tests/setup.ts"],
     // DB tests share one database; run files one at a time.
     fileParallelism: false,
     env: {

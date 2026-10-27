@@ -29,7 +29,7 @@ describe.skipIf(!hasDb)("off-day check-ins, leave in a period, week bars", () =>
       await db.leaveRequest.deleteMany({ where: { startDate: { lte: toDate(today) }, endDate: { gte: toDate(today) } } });
       await db.attendance.deleteMany({ where: { date: toDate(today) } });
       await db.attendance.create({
-        data: { employeeId: ali.employeeId!, date: toDate(today), checkIn: new Date(), status: "LATE", source: "web" },
+        data: { companyId: 1, employeeId: ali.employeeId!, date: toDate(today), checkIn: new Date(), status: "LATE", source: "web" },
       });
     });
     afterAll(() => db.companySettings.update({ where: { id: 1 }, data: { weekendDays: [0, 6] } }));

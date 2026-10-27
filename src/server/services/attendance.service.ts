@@ -2,6 +2,7 @@ import type { AttendanceStatus, RequestStatus } from "@prisma/client";
 import { z } from "zod";
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import {
   eachDay,
   hhmmToMinutes,
@@ -390,7 +391,7 @@ export async function enrollFace(actor: Session, input: z.infer<typeof enrollFac
     if (await tx.faceProfile.findUnique({ where: { employeeId }, select: { employeeId: true } })) {
       throw new HttpError(409, "A face is already enrolled. Ask HR to reset it if you need to enrol again.", "conflict");
     }
-    const p = await tx.faceProfile.create({ data: { employeeId, descriptor: input.descriptor } });
+    const p = await tx.faceProfile.create({ data: { companyId: currentCompanyId(), employeeId, descriptor: input.descriptor } });
     // The descriptor itself is biometric data and never goes into the audit log.
     await audit(actor, "enroll_face", "employee", employeeId, { after: { enrolledAt: p.enrolledAt } }, tx);
     return { enrolled: true, enrolledAt: p.enrolledAt.toISOString() };
@@ -433,7 +434,7 @@ export async function checkIn(actor: Session, now: Date = new Date(), input: Che
   try {
     return recordOut(
       await db.attendance.create({
-        data: { employeeId, date, checkIn: now, status, source: input.method, ...(camera ?? {}) },
+        data: { companyId: currentCompanyId(), employeeId, date, checkIn: now, status, source: input.method, ...(camera ?? {}) },
       }),
     );
   } catch (err) {
@@ -634,6 +635,7 @@ export async function requestCorrection(actor: Session, input: z.infer<typeof co
   return db.$transaction(async (tx) => {
     const c = await tx.attendanceCorrection.create({
       data: {
+        companyId: currentCompanyId(),
         employeeId,
         date: toDate(input.date),
         requestedCheckIn: zonedDateTime(input.date, input.checkIn),
@@ -691,7 +693,7 @@ export async function decideCorrection(actor: Session, id: string, input: { appr
         status: statusForDay(c.requestedCheckIn, c.requestedCheckOut, settings),
         source: "correction",
       };
-      attendance = await tx.attendance.upsert({ where: key, create: { employeeId: c.employeeId, date: c.date, ...data }, update: data });
+      attendance = await tx.attendance.upsert({ where: key, create: { companyId: currentCompanyId(), employeeId: c.employeeId, date: c.date, ...data }, update: data });
       await audit(actor, "update", "attendance", attendance.id, { before, after: attendance }, tx);
     }
     const updated = await tx.attendanceCorrection.findUniqueOrThrow({ where: { id }, include: { employee: { include: { department: true } } } });

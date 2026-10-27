@@ -189,9 +189,9 @@ describe.skipIf(!hasDb)("M4 attendance + M5 leave", () => {
     it("approving more than the remaining balance is a 422", async () => {
       // Created directly (as if other leave was approved after applying): 9 sick days, quota is 8 in any year.
       const start = futureWeekday(90);
-      const sick = await db.leaveType.findUniqueOrThrow({ where: { code: "sick" } });
+      const sick = await db.leaveType.findUniqueOrThrow({ where: { companyId_code: { companyId: 1, code: "sick" } } });
       const l = await db.leaveRequest.create({
-        data: { employeeId: sara.employeeId!, leaveTypeId: sick.id, startDate: toDate(start), endDate: toDate(addDays(start, 11)), days: 9, reason: "Surgery" },
+        data: { companyId: 1, employeeId: sara.employeeId!, leaveTypeId: sick.id, startDate: toDate(start), endDate: toDate(addDays(start, 11)), days: 9, reason: "Surgery" },
       });
       await expect(decideLeave(hr, l.id, { decision: "APPROVED" })).rejects.toMatchObject({ status: 422 });
     });
@@ -209,10 +209,10 @@ describe.skipIf(!hasDb)("M4 attendance + M5 leave", () => {
       const ok = await call(leaveCancelRoute.POST, { userId: bilal.userId, params: { id: applied.id }, body: {} });
       expect(ok.body.status).toBe("CANCELLED");
 
-      const casual = await db.leaveType.findUniqueOrThrow({ where: { code: "casual" } });
+      const casual = await db.leaveType.findUniqueOrThrow({ where: { companyId_code: { companyId: 1, code: "casual" } } });
       const pastStart = addDays(todayIso(), -20);
       const pastLeave = await db.leaveRequest.create({
-        data: { employeeId: bilal.employeeId!, leaveTypeId: casual.id, startDate: toDate(pastStart), endDate: toDate(pastStart), days: 1, reason: "x", status: "APPROVED" },
+        data: { companyId: 1, employeeId: bilal.employeeId!, leaveTypeId: casual.id, startDate: toDate(pastStart), endDate: toDate(pastStart), days: 1, reason: "x", status: "APPROVED" },
       });
       await expect(cancelLeave(bilal, pastLeave.id)).rejects.toMatchObject({ status: 409 });
     });

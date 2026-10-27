@@ -5,8 +5,8 @@ import { chatRequestSchema } from "@/server/ai/chat";
 import { allowedNumbers, ungroundedNumbers } from "@/server/ai/summary";
 import { classifyDay, rates } from "@/server/services/attendance.service";
 
-const employee: Session = { userId: "u1", role: "EMPLOYEE", employeeId: "e1" };
-const hr: Session = { userId: "u2", role: "HR", employeeId: "e2" };
+const employee: Session = { userId: "u1", companyId: 1, role: "EMPLOYEE", employeeId: "e1" };
+const hr: Session = { userId: "u2", companyId: 1, role: "HR", employeeId: "e2" };
 
 describe("dates", () => {
   it("counts working days skipping weekends and holidays", () => {

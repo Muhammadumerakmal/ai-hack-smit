@@ -26,7 +26,7 @@ const check = (label: string, ok: boolean) => {
 
 async function session(email: string): Promise<Session> {
   const u = await db.user.findUniqueOrThrow({ where: { email }, include: { employee: true } });
-  return { userId: u.id, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.name };
+  return { userId: u.id, companyId: u.companyId, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.name };
 }
 
 async function ask(s: Session, q: string) {

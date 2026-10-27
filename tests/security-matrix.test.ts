@@ -144,7 +144,7 @@ describe.skipIf(!hasDb)("security: endpoint × role matrix", () => {
     tokens.forged = await new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setSubject(admin.id).setExpirationTime("1h").sign(new TextEncoder().encode("not-the-real-secret"));
     const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
     tokens.algNone = `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub: admin.id, exp: past + 7200 })}.`;
-    const gone = await db.user.create({ data: { email: "gone@demo.test", name: "Gone", passwordHash: "x", role: "ADMIN", isActive: false } });
+    const gone = await db.user.create({ data: { companyId: 1, email: "gone@demo.test", name: "Gone", passwordHash: "x", role: "ADMIN", isActive: false } });
     tokens.deactivated = await signToken(gone.id);
     tokens.unknownUser = await signToken("no-such-user-id");
 

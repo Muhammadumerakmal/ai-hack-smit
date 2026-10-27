@@ -2,17 +2,23 @@ import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { signToken } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { currentCompanyId, runInCompany } from "@/lib/tenant";
 import { badRequest, forbidden, HttpError, unauthorized } from "@/lib/errors";
 import { hashPassword, passwordSchema, temporaryPassword, verifyPassword } from "@/lib/password";
 import { assertRole, type Session } from "@/lib/session";
 
-// ---------- First-run setup (#01) ----------
+// ---------- Create a company (#01) ----------
+// Every visitor can create their own company and becomes its Admin. Companies are fully separate:
+// all data is scoped to the signed-in user's company (lib/tenant.ts, lib/db.ts), so a new company
+// never sees or changes another one. Inside a company the brief's flow is unchanged: Admin creates
+// HR logins, HR registers employees.
 
+/** True only on a brand-new install (no company yet): the home page then opens "Create your company". */
 export async function needsSetup(): Promise<boolean> {
-  return (await db.user.count()) === 0;
+  return (await db.companySettings.count()) === 0;
 }
 
-/** Admin credentials may come from the form or from ADMIN_EMAIL / ADMIN_PASSWORD in the env file. */
+/** On a brand-new install the first Admin may come from ADMIN_EMAIL / ADMIN_PASSWORD in the env file. */
 export function envAdmin(): { email: string; password: string } | null {
   const email = process.env.ADMIN_EMAIL;
   const password = process.env.ADMIN_PASSWORD;
@@ -34,22 +40,48 @@ const DEFAULT_LEAVE_TYPES = [
   { code: "unpaid", name: "Unpaid", yearlyQuota: null, isPaid: false },
 ];
 
-export async function runSetup(input: z.infer<typeof setupSchema>) {
-  const fromEnv = envAdmin();
+// Spam brake: at most this many companies per client address per hour. In-memory, so per server instance
+// (the same trade-off as the login throttle below).
+export const MAX_COMPANIES_PER_HOUR = 5;
+const companyCreations = new Map<string, number[]>();
+
+function companyThrottle(key: string, now: number) {
+  const recent = (companyCreations.get(key) ?? []).filter((t) => now - t < 60 * 60 * 1000);
+  if (recent.length >= MAX_COMPANIES_PER_HOUR) {
+    throw new HttpError(429, "Too many companies were created from this network. Please try again later.", "rate_limited");
+  }
+  companyCreations.set(key, [...recent, now]);
+  if (companyCreations.size > 10_000) companyCreations.delete(companyCreations.keys().next().value!); // bound memory
+}
+
+/** Test hook: forget recent company creations. */
+export function resetCompanyThrottle() {
+  companyCreations.clear();
+}
+
+/** Creates a company with its Admin account. Runs unscoped (no company yet), then inside the new company. */
+export async function runSetup(input: z.infer<typeof setupSchema>, clientKey = "local", now = Date.now()) {
+  // The env Admin only applies to the very first company of a fresh install, never to later sign-ups.
+  const fromEnv = (await needsSetup()) ? envAdmin() : null;
   const email = (input.adminEmail ?? fromEnv?.email)?.toLowerCase();
   const password = input.adminPassword ?? fromEnv?.password;
   if (!email || !password) throw badRequest("Admin email and password are required.");
+  if (await db.user.findUnique({ where: { email } })) {
+    throw new HttpError(409, "An account with this email already exists. Sign in instead, or use another email.", "conflict");
+  }
+  companyThrottle(clientKey, now);
 
   const passwordHash = await hashPassword(password);
   const admin = await db.$transaction(async (tx) => {
-    // Checked inside the transaction so two setup submissions cannot both win.
-    if ((await tx.user.count()) > 0) throw new HttpError(409, "Setup has already been completed.", "conflict");
-    await tx.companySettings.create({ data: { id: 1, companyName: input.companyName } });
-    await tx.leaveType.createMany({ data: DEFAULT_LEAVE_TYPES });
-    const user = await tx.user.create({ data: { email, name: input.adminName, passwordHash, role: "ADMIN" } });
-    const actor: Session = { userId: user.id, role: "ADMIN", employeeId: null, name: input.adminName };
-    await audit(actor, "setup", "company", "1", { after: { companyName: input.companyName, adminEmail: email } }, tx);
-    return user;
+    const company = await tx.companySettings.create({ data: { companyName: input.companyName } });
+    // Everything else is written inside the new company.
+    return runInCompany(company.id, async () => {
+      await tx.leaveType.createMany({ data: DEFAULT_LEAVE_TYPES.map((t) => ({ ...t, companyId: company.id })) });
+      const user = await tx.user.create({ data: { companyId: company.id, email, name: input.adminName, passwordHash, role: "ADMIN" } });
+      const actor: Session = { userId: user.id, companyId: company.id, role: "ADMIN", employeeId: null, name: input.adminName };
+      await audit(actor, "setup", "company", String(company.id), { after: { companyName: input.companyName, adminEmail: email } }, tx);
+      return user;
+    });
   });
   return { token: await signToken(admin.id) };
 }
@@ -142,7 +174,7 @@ export async function createHrUser(actor: Session, input: z.infer<typeof createH
   const tempPassword = temporaryPassword();
   const user = await db.$transaction(async (tx) => {
     const u = await tx.user.create({
-      data: { email: input.email.toLowerCase(), name: input.name, role: "HR", passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
+      data: { companyId: currentCompanyId(), email: input.email.toLowerCase(), name: input.name, role: "HR", passwordHash: await hashPassword(tempPassword), mustChangePassword: true },
     });
     await audit(actor, "create", "user", u.id, { after: { email: u.email, name: u.name, role: u.role } }, tx);
     return u;

@@ -5,6 +5,7 @@ import * as login from "@/app/api/auth/login/route";
 import * as me from "@/app/api/auth/me/route";
 import * as employees from "@/app/api/employees/route";
 import * as setup from "@/app/api/setup/route";
+import { MAX_COMPANIES_PER_HOUR, resetCompanyThrottle } from "@/server/services/auth.service";
 import * as users from "@/app/api/users/route";
 import * as userById from "@/app/api/users/[id]/route";
 import * as resetPw from "@/app/api/users/[id]/reset-password/route";
@@ -23,7 +24,7 @@ describe.skipIf(!hasDb)("M1 auth", () => {
       );
     });
 
-    it("reports a fresh install, creates company + Admin once, then refuses", async () => {
+    it("reports a fresh install, creates the first company + Admin", async () => {
       expect((await call(setup.GET)).body).toMatchObject({ needsSetup: true });
 
       const body = { companyName: "Acme", adminName: "Ayesha", adminEmail: "Admin@Acme.test", adminPassword: "secret123" };
@@ -38,8 +39,30 @@ describe.skipIf(!hasDb)("M1 auth", () => {
       expect(await db.leaveType.count()).toBe(4); // Section 3 quotas
       expect((await db.companySettings.findUniqueOrThrow({ where: { id: 1 } })).companyName).toBe("Acme");
 
-      expect((await call(setup.POST, { body: { ...body, adminEmail: "x@acme.test" } })).status).toBe(409);
       expect((await call(setup.GET)).body).toMatchObject({ needsSetup: false });
+    });
+
+    it("lets another visitor create a separate company, but never reuse an existing login email", async () => {
+      resetCompanyThrottle();
+      const second = await call(setup.POST, { body: { companyName: "Beta", adminName: "Bilal", adminEmail: "owner@beta.test", adminPassword: "secret123" } });
+      expect(second.status).toBe(200);
+      const owner = await db.user.findUniqueOrThrow({ where: { email: "owner@beta.test" } });
+      expect(owner).toMatchObject({ role: "ADMIN", companyId: 2 });
+      expect(await db.leaveType.count({ where: { companyId: 2 } })).toBe(4); // its own copy of the Section 3 quotas
+      expect((await db.companySettings.findUniqueOrThrow({ where: { id: 1 } })).companyName).toBe("Acme"); // untouched
+
+      const taken = await call(setup.POST, { body: { companyName: "Gamma", adminName: "Gul", adminEmail: "ADMIN@acme.test", adminPassword: "secret123" } });
+      expect(taken.status).toBe(409);
+      expect(await db.companySettings.count()).toBe(2);
+    });
+
+    it("limits how many companies one network can create per hour", async () => {
+      resetCompanyThrottle();
+      const make = (i: number) =>
+        call(setup.POST, { body: { companyName: `Spam ${i}`, adminName: "Spam", adminEmail: `spam${i}@x.test`, adminPassword: "secret123" } });
+      for (let i = 0; i < MAX_COMPANIES_PER_HOUR; i++) expect((await make(i)).status).toBe(200);
+      expect((await make(99)).status).toBe(429);
+      resetCompanyThrottle();
     });
 
     it("signs the Admin in with the chosen password", async () => {

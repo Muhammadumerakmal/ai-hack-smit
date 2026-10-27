@@ -1,5 +1,6 @@
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { currentMonth, maxIso, minIso, monthRange, toDate, toIso, todayIso, workingDays } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
 import { assertRole, type Session } from "@/lib/session";
@@ -158,12 +159,12 @@ export async function createOrRecomputeDraft(actor: Session, month: string) {
   assertRole(actor, "HR");
   assertMonth(month);
   if (month > todayIso().slice(0, 7)) throw badRequest("Payroll cannot be run for a future month.");
-  const existing = await db.payrollRun.findUnique({ where: { month } });
+  const existing = await db.payrollRun.findUnique({ where: { companyId_month: { companyId: currentCompanyId(), month } } });
   if (existing?.status === "FINALIZED") throw new HttpError(409, `Payroll for ${month} is finalized and locked.`, "locked");
 
   const computed = await computeMonth(month);
   return db.$transaction(async (tx) => {
-    const run = existing ?? (await tx.payrollRun.create({ data: { month, createdById: actor.userId } }));
+    const run = existing ?? (await tx.payrollRun.create({ data: { companyId: currentCompanyId(), month, createdById: actor.userId } }));
     if (existing) {
       // Re-check the lock inside the transaction: an Admin may have finalized the month since we read it.
       // The conditional UPDATE also row-locks the run, so a concurrent finalize waits for us (or we see FINALIZED).
@@ -173,6 +174,7 @@ export async function createOrRecomputeDraft(actor: Session, month: string) {
     }
     await tx.payslip.createMany({
       data: computed.slips.map((s) => ({
+        companyId: currentCompanyId(),
         runId: run.id,
         employeeId: s.employeeId,
         basic: s.basic,
@@ -198,7 +200,7 @@ export async function getRun(actor: Session, month: string) {
   assertRole(actor, "ADMIN", "HR");
   assertMonth(month);
   const run = await db.payrollRun.findUnique({
-    where: { month },
+    where: { companyId_month: { companyId: currentCompanyId(), month } },
     include: { payslips: { include: { employee: { include: { department: true } } }, orderBy: { employee: { code: "asc" } } } },
   });
   if (!run) throw new HttpError(404, `No payroll run for ${month} yet.`, "not_found");
@@ -235,7 +237,7 @@ export async function getRun(actor: Session, month: string) {
 export async function finalizeRun(actor: Session, month: string) {
   assertRole(actor, "ADMIN");
   assertMonth(month);
-  const run = await db.payrollRun.findUnique({ where: { month }, include: { payslips: { include: { employee: { select: { userId: true } } } } } });
+  const run = await db.payrollRun.findUnique({ where: { companyId_month: { companyId: currentCompanyId(), month } }, include: { payslips: { include: { employee: { select: { userId: true } } } } } });
   if (!run) throw new HttpError(404, `No payroll run for ${month} yet.`, "not_found");
   if (run.status === "FINALIZED") throw new HttpError(409, `Payroll for ${month} is already finalized.`, "locked");
   if (!run.payslips.length) throw badRequest("This run has no payslips.");
@@ -322,7 +324,7 @@ export async function getPayrollSummary(actor: Session, opts: { month?: string; 
 
   const departmentId = await resolveDepartmentId(opts.department);
   const run = opts.month
-    ? await db.payrollRun.findUnique({ where: { month: opts.month } })
+    ? await db.payrollRun.findUnique({ where: { companyId_month: { companyId: currentCompanyId(), month: opts.month } } })
     : await db.payrollRun.findFirst({ orderBy: { month: "desc" } });
   if (!run) {
     return { month: opts.month ?? currentMonth(), found: false, message: "No payroll run exists for this month yet." };

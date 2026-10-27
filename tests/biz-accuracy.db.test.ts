@@ -218,7 +218,7 @@ describe.skipIf(!hasDb)("QA-3 business accuracy (February 2026 fixture)", () => 
 
     it("recompute after an attendance change picks it up (A's absence on the 6th fixed → 0.5 day deducted)", async () => {
       await db.attendance.create({
-        data: { employeeId: fx.emp.A.id, date: new Date("2026-02-06T00:00:00Z"), checkIn: new Date("2026-02-06T04:00:00Z"), checkOut: new Date("2026-02-06T12:00:00Z"), status: "PRESENT" },
+        data: { companyId: 1, employeeId: fx.emp.A.id, date: new Date("2026-02-06T00:00:00Z"), checkIn: new Date("2026-02-06T04:00:00Z"), checkOut: new Date("2026-02-06T12:00:00Z"), status: "PRESENT" },
       });
       await createOrRecomputeDraft(fx.hr, "2026-02");
       const a = (await getRun(fx.hr, "2026-02")).payslips.find((p) => p.code === "A")!;
@@ -243,8 +243,8 @@ describe.skipIf(!hasDb)("QA-3 business accuracy (February 2026 fixture)", () => 
     it("every KPI is a number or null — never NaN/Infinity", async () => {
       await truncateAll(db);
       await db.companySettings.create({ data: { id: 1, companyName: "Empty Co" } });
-      const admin = await db.user.create({ data: { email: "a@empty.test", passwordHash: "x", role: "ADMIN" } });
-      const s = { userId: admin.id, role: "ADMIN" as const, employeeId: null, name: "A" };
+      const admin = await db.user.create({ data: { companyId: 1, email: "a@empty.test", passwordHash: "x", role: "ADMIN" } });
+      const s = { userId: admin.id, companyId: 1, role: "ADMIN" as const, employeeId: null, name: "A" };
       const d = await getDashboard(s, FEB);
       const json = JSON.stringify(d);
       expect(json).not.toMatch(/NaN|Infinity/);

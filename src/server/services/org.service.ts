@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { isIsoDate, toDate, toIso } from "@/lib/dates";
 import { badRequest, HttpError } from "@/lib/errors";
 import { assertRole, type Session } from "@/lib/session";
@@ -32,14 +33,14 @@ export async function getCompanySettings(actor: Session) {
 /** Applied to new records only: stored attendance statuses are never recalculated. */
 export async function updateCompanySettings(actor: Session, input: z.infer<typeof settingsSchema>) {
   assertRole(actor, "ADMIN");
-  const before = await db.companySettings.findUnique({ where: { id: 1 } });
+  const before = await db.companySettings.findUnique({ where: { id: currentCompanyId() } });
   if (input.cameraRequired && (input.officeLat == null || input.officeLng == null)) {
     throw badRequest("Set the office latitude and longitude before requiring camera check-in.");
   }
   const data = { ...input, weekendDays: [...new Set(input.weekendDays)].sort() };
   return db.$transaction(async (tx) => {
-    const after = await tx.companySettings.upsert({ where: { id: 1 }, create: { id: 1, ...data }, update: data });
-    await audit(actor, "update", "settings", "1", { before, after }, tx);
+    const after = await tx.companySettings.update({ where: { id: currentCompanyId() }, data });
+    await audit(actor, "update", "settings", String(after.id), { before, after }, tx);
     return after;
   });
 }
@@ -57,7 +58,7 @@ export async function listDepartments() {
 export async function createDepartment(actor: Session, name: string) {
   assertRole(actor, "ADMIN");
   return db.$transaction(async (tx) => {
-    const d = await tx.department.create({ data: { name } });
+    const d = await tx.department.create({ data: { companyId: currentCompanyId(), name } });
     await audit(actor, "create", "department", d.id, { after: d }, tx);
     return d;
   });
@@ -90,7 +91,7 @@ export async function listDesignations() {
 export async function createDesignation(actor: Session, title: string) {
   assertRole(actor, "ADMIN");
   return db.$transaction(async (tx) => {
-    const d = await tx.designation.create({ data: { title } });
+    const d = await tx.designation.create({ data: { companyId: currentCompanyId(), title } });
     await audit(actor, "create", "designation", d.id, { after: d }, tx);
     return { id: d.id, name: d.title };
   });
@@ -132,7 +133,7 @@ export async function upsertLeaveType(actor: Session, input: z.infer<typeof leav
   assertRole(actor, "ADMIN");
   return db.$transaction(async (tx) => {
     const before = id ? await tx.leaveType.findUniqueOrThrow({ where: { id } }) : null;
-    const after = id ? await tx.leaveType.update({ where: { id }, data: input }) : await tx.leaveType.create({ data: input });
+    const after = id ? await tx.leaveType.update({ where: { id }, data: input }) : await tx.leaveType.create({ data: { ...input, companyId: currentCompanyId() } });
     await audit(actor, id ? "update" : "create", "leave_type", after.id, { before, after }, tx);
     return after;
   });
@@ -156,7 +157,7 @@ export async function listHolidays(year: number) {
 export async function createHoliday(actor: Session, input: z.infer<typeof holidaySchema>) {
   assertRole(actor, "ADMIN");
   return db.$transaction(async (tx) => {
-    const h = await tx.holiday.create({ data: { date: toDate(input.date), name: input.name } });
+    const h = await tx.holiday.create({ data: { companyId: currentCompanyId(), date: toDate(input.date), name: input.name } });
     await audit(actor, "create", "holiday", h.id, { after: input }, tx);
     return { id: h.id, ...input };
   });

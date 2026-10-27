@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getSession, type AuthContext } from "./auth";
 import { HttpError } from "./errors";
 import { assertRole, type Role } from "./session";
+import { runAsSystem, runInCompany } from "./tenant";
 
 type Params = Record<string, string>;
 
@@ -28,7 +29,9 @@ export function withSession<P extends Params = Params>(
         throw new HttpError(403, "Please change your temporary password first.", "password_change_required");
       }
       if (opts.roles) assertRole(session, ...opts.roles);
-      const result = await handler(req, session, ((await ctx?.params) ?? {}) as P);
+      const params = ((await ctx?.params) ?? {}) as P;
+      // Everything the handler does (services, AI tools, PDFs) sees only the user's own company.
+      const result = await runInCompany(session.companyId, () => handler(req, session, params));
       return result instanceof Response ? result : NextResponse.json(result ?? { ok: true });
     } catch (err) {
       return errorResponse(err);
@@ -36,11 +39,11 @@ export function withSession<P extends Params = Params>(
   };
 }
 
-/** For the few public routes (login, first-run setup). */
+/** For the few public routes (login, creating a company). They run before a company is known, so unscoped. */
 export function publicRoute(handler: (req: Request) => Promise<unknown>) {
   return async (req: Request) => {
     try {
-      const result = await handler(req);
+      const result = await runAsSystem(() => handler(req));
       return result instanceof Response ? result : NextResponse.json(result ?? { ok: true });
     } catch (err) {
       return errorResponse(err);

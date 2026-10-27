@@ -43,11 +43,12 @@ describe.skipIf(!hasDb)("QA-3 performance: query counts do not grow with employe
         basicSalary: 50_000 + k,
       };
     });
-    await db.employee.createMany({ data: emps });
+    await db.employee.createMany({ data: emps.map((e) => ({ companyId: 1, ...e })) });
     const ids = await db.employee.findMany({ where: { code: { in: emps.map((e) => e.code) } }, select: { id: true } });
     await db.attendance.createMany({
       data: ids.flatMap((e, i) =>
         days.map((d) => ({
+          companyId: 1,
           employeeId: e.id,
           date: new Date(`${d}T00:00:00Z`),
           checkIn: new Date(`${d}T${i % 7 === 0 ? "04:40" : "04:00"}:00Z`),

@@ -183,11 +183,16 @@ describe.skipIf(!hasDb)("QA-2 · AI assistant audit", () => {
     });
 
     it("accepts numbers written with thousands separators and percentages", async () => {
-      setLlm(new ScriptedLlm([json({ bullets: ["Payroll gross for the last run is 862,500.", "Attendance rate is 98.2%.", "Headcount is 5."] })]));
-      const kpis = await getDashboardKpis(admin, { start: `${todayIso().slice(0, 7)}-01`, end: todayIso() });
-      const run = await runSummary(admin, { start: `${todayIso().slice(0, 7)}-01`, end: todayIso() }, signal);
-      const hasGross = JSON.stringify(kpis).includes("862500");
-      expect(run.status === undefined || !hasGross).toBe(true);
+      // The demo data moves with today's date, so the bullets quote today's real KPI values.
+      const f = { start: `${todayIso().slice(0, 7)}-01`, end: todayIso() };
+      const kpis = await getDashboardKpis(admin, f);
+      const gross = (kpis as { payroll?: { totalGross?: number } }).payroll?.totalGross ?? null; // Admin KPIs only
+      const bullets = [`Attendance rate is ${kpis.attendance.attendanceRatePct}%.`, `Headcount is ${kpis.headcount.total}.`];
+      if (gross !== null && gross >= 1000) bullets.unshift(`Payroll gross for the last run is ${gross.toLocaleString("en-US")}.`);
+      setLlm(new ScriptedLlm([json({ bullets })]));
+      const run = await runSummary(admin, f, signal);
+      expect(run.status).toBeUndefined(); // accepted on the first try: "862,500" and "98.3%" both count as grounded
+      expect(run.data.bullets).toEqual(bullets);
     });
 
     it("zero-data period: summary still validates (no invented numbers)", async () => {

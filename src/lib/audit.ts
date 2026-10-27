@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "./db";
 import type { Session } from "./session";
+import { currentCompanyId } from "./tenant";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
 
@@ -25,6 +26,7 @@ export function auditEntry(
   change: { before?: unknown; after?: unknown } = {},
 ): Prisma.AuditLogCreateManyInput {
   return {
+    companyId: currentCompanyId(),
     actorId: actor.userId,
     actorRole: actor.role,
     actorName: actor.name ?? "",
@@ -48,5 +50,5 @@ export async function notify(
   tx: Tx = db,
 ) {
   const ids = [...new Set(userIds.filter((x): x is string => !!x))];
-  if (ids.length) await tx.notification.createMany({ data: ids.map((userId) => ({ userId, ...n })) });
+  if (ids.length) await tx.notification.createMany({ data: ids.map((userId) => ({ companyId: currentCompanyId(), userId, ...n })) });
 }

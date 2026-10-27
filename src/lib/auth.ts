@@ -1,6 +1,7 @@
 import { jwtVerify, SignJWT } from "jose";
 import { db } from "./db";
 import { unauthorized } from "./errors";
+import { runAsSystem } from "./tenant";
 import type { Session } from "./session";
 
 export const SESSION_COOKIE = "token";
@@ -34,10 +35,14 @@ export interface AuthContext extends Session {
 }
 
 export async function loadSession(userId: string): Promise<AuthContext | null> {
-  const user = await db.user.findUnique({ where: { id: userId }, include: { employee: { select: { id: true, fullName: true } } } });
+  // Before this lookup the company is not known yet, so it runs unscoped; the user row says which company it is.
+  const user = await runAsSystem(() =>
+    db.user.findUnique({ where: { id: userId }, include: { employee: { select: { id: true, fullName: true } } } }),
+  );
   if (!user || !user.isActive) return null;
   return {
     userId: user.id,
+    companyId: user.companyId,
     role: user.role,
     employeeId: user.employee?.id ?? null,
     name: user.employee?.fullName || user.name || user.email,

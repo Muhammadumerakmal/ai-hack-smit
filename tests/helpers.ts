@@ -17,7 +17,7 @@ export async function seed(db: PrismaClient) {
 
 export async function sessionFor(db: PrismaClient, email: string): Promise<Session> {
   const u = await db.user.findUniqueOrThrow({ where: { email }, include: { employee: true } });
-  return { userId: u.id, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.name ?? u.email };
+  return { userId: u.id, companyId: u.companyId, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.name ?? u.email };
 }
 
 // Loose on purpose: withSession<{ month: string }> etc. must all be accepted.

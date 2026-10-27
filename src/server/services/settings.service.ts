@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { toDate, toIso } from "@/lib/dates";
 import { HttpError } from "@/lib/errors";
 
@@ -30,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export async function getSettings(): Promise<Settings> {
-  const row = await db.companySettings.findUnique({ where: { id: 1 } });
+  const row = await db.companySettings.findUnique({ where: { id: currentCompanyId() } });
   if (!row) return DEFAULT_SETTINGS;
   return {
     companyName: row.companyName,

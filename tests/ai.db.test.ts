@@ -38,7 +38,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
     const users = await db.user.findMany({ include: { employee: true } });
     const s = (email: string): Session => {
       const u = users.find((x) => x.email === email)!;
-      return { userId: u.id, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.email };
+      return { userId: u.id, companyId: u.companyId, role: u.role, employeeId: u.employee?.id ?? null, name: u.employee?.fullName ?? u.email };
     };
     admin = s("admin@demo.test");
     hr = s("hr@demo.test");
@@ -332,7 +332,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
   describe("dashboard summary", () => {
     it("rejects bullets with numbers that are not in the KPI JSON, then accepts grounded ones", async () => {
       const llm = new ScriptedLlm([
-        say(JSON.stringify({ bullets: ["Attendance is up 37% on last month.", "All good.", "Fine."] })),
+        say(JSON.stringify({ bullets: ["Attendance is up 9137% on last month.", "All good.", "Fine."] })), // never a real KPI value
         say(JSON.stringify({ bullets: ["Headcount is 5.", "Ali Raza is the most frequent late-comer.", "There is 1 pending leave approval."] })),
       ]);
       setLlm(llm);
@@ -340,7 +340,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
       expect(run.status).toBeUndefined();
       expect(run.data.bullets[0]).toBe("Headcount is 5.");
       const feedback = llm.requests[1].messages.at(-1);
-      expect(feedback && "content" in feedback && feedback.content).toMatch(/37/);
+      expect(feedback && "content" in feedback && feedback.content).toMatch(/9137/);
     });
 
     it("is not available to employees", async () => {
@@ -358,7 +358,7 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
 
     it("rate limits at 20 calls per user per hour", async () => {
       await db.aiLog.createMany({
-        data: Array.from({ length: 20 }, () => ({ userId: ali.userId, role: "EMPLOYEE" as const, feature: "chat", input: "x", status: "ok", latencyMs: 1 })),
+        data: Array.from({ length: 20 }, () => ({ companyId: 1, userId: ali.userId, role: "EMPLOYEE" as const, feature: "chat", input: "x", status: "ok", latencyMs: 1 })),
       });
       setChatModel(new ScriptedModel([say("should not be called")]));
       await expect(

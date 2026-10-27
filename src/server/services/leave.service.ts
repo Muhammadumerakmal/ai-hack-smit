@@ -2,6 +2,7 @@ import type { LeaveStatus, LeaveType, Prisma, PrismaClient } from "@prisma/clien
 import { z } from "zod";
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { addDays, maxIso, minIso, toDate, toIso, todayIso, workingDays, yearRange } from "@/lib/dates";
 import { badRequest, forbidden, HttpError } from "@/lib/errors";
 import { assertRole, scopeEmployeeId, type Session } from "@/lib/session";
@@ -253,6 +254,7 @@ export async function applyForLeave(actor: Session, draft: LeaveDraft) {
     if (problems.length) throw new HttpError(422, problems.join(" "), "unprocessable");
     const r = await tx.leaveRequest.create({
       data: {
+        companyId: currentCompanyId(),
         employeeId: actor.employeeId!,
         leaveTypeId: type.id,
         startDate: toDate(draft.start),

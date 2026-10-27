@@ -41,24 +41,25 @@ export async function truncateAll(db: PrismaClient) {
 export async function buildFebCompany(db: PrismaClient) {
   await truncateAll(db);
   await db.companySettings.create({ data: { id: 1, companyName: "QA Co" } });
-  const eng = await db.department.create({ data: { name: "Engineering" } });
-  const sales = await db.department.create({ data: { name: "Sales" } });
+  await db.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('settings', 'id'), (SELECT MAX(id) FROM settings))`);
+  const eng = await db.department.create({ data: { companyId: 1, name: "Engineering" } });
+  const sales = await db.department.create({ data: { companyId: 1, name: "Sales" } });
   const types = {
-    annual: await db.leaveType.create({ data: { code: "annual", name: "Annual", yearlyQuota: 14 } }),
-    sick: await db.leaveType.create({ data: { code: "sick", name: "Sick", yearlyQuota: 8 } }),
-    casual: await db.leaveType.create({ data: { code: "casual", name: "Casual", yearlyQuota: 10 } }),
-    unpaid: await db.leaveType.create({ data: { code: "unpaid", name: "Unpaid", yearlyQuota: null, isPaid: false } }),
+    annual: await db.leaveType.create({ data: { companyId: 1, code: "annual", name: "Annual", yearlyQuota: 14 } }),
+    sick: await db.leaveType.create({ data: { companyId: 1, code: "sick", name: "Sick", yearlyQuota: 8 } }),
+    casual: await db.leaveType.create({ data: { companyId: 1, code: "casual", name: "Casual", yearlyQuota: 10 } }),
+    unpaid: await db.leaveType.create({ data: { companyId: 1, code: "unpaid", name: "Unpaid", yearlyQuota: null, isPaid: false } }),
   };
-  await db.holiday.create({ data: { date: new Date(`${HOLIDAY}T00:00:00Z`), name: "Kashmir Day" } });
+  await db.holiday.create({ data: { companyId: 1, date: new Date(`${HOLIDAY}T00:00:00Z`), name: "Kashmir Day" } });
 
-  const admin = await db.user.create({ data: { email: "admin@qa.test", name: "QA Admin", passwordHash: "x", role: "ADMIN" } });
-  const hr = await db.user.create({ data: { email: "hr@qa.test", name: "QA HR", passwordHash: "x", role: "HR" } });
-  const hr2 = await db.user.create({ data: { email: "hr2@qa.test", name: "QA HR 2", passwordHash: "x", role: "HR" } });
+  const admin = await db.user.create({ data: { companyId: 1, email: "admin@qa.test", name: "QA Admin", passwordHash: "x", role: "ADMIN" } });
+  const hr = await db.user.create({ data: { companyId: 1, email: "hr@qa.test", name: "QA HR", passwordHash: "x", role: "HR" } });
+  const hr2 = await db.user.create({ data: { companyId: 1, email: "hr2@qa.test", name: "QA HR 2", passwordHash: "x", role: "HR" } });
 
   const mk = async (code: string, name: string, deptId: string, join: string, status: "ACTIVE" | "PROBATION" | "EXITED" | "INACTIVE", basic: number, exit?: string) => {
-    const u = await db.user.create({ data: { email: `${code.toLowerCase()}@qa.test`, name, passwordHash: "x", role: "EMPLOYEE" } });
+    const u = await db.user.create({ data: { companyId: 1, email: `${code.toLowerCase()}@qa.test`, name, passwordHash: "x", role: "EMPLOYEE" } });
     return db.employee.create({
-      data: {
+      data: { companyId: 1,
         code,
         fullName: name,
         email: `${code.toLowerCase()}@qa.test`,
@@ -108,17 +109,17 @@ export async function buildFebCompany(db: PrismaClient) {
   // Boundary noise that must NOT be counted in February.
   add(A.id, "2026-01-30", "LATE");
   add(A.id, "2026-03-02", "LATE");
-  await db.attendance.createMany({ data: rows });
+  await db.attendance.createMany({ data: rows.map((r) => ({ companyId: 1, ...r })) });
 
   await db.leaveRequest.create({
-    data: { employeeId: A.id, leaveTypeId: types.casual.id, startDate: new Date("2026-02-10T00:00:00Z"), endDate: new Date("2026-02-11T00:00:00Z"), days: 2, reason: "Family", status: "APPROVED" },
+    data: { companyId: 1, employeeId: A.id, leaveTypeId: types.casual.id, startDate: new Date("2026-02-10T00:00:00Z"), endDate: new Date("2026-02-11T00:00:00Z"), days: 2, reason: "Family", status: "APPROVED" },
   });
   await db.leaveRequest.create({
-    data: { employeeId: E.id, leaveTypeId: types.unpaid.id, startDate: new Date("2026-02-23T00:00:00Z"), endDate: new Date("2026-02-27T00:00:00Z"), days: 5, reason: "Unpaid", status: "APPROVED" },
+    data: { companyId: 1, employeeId: E.id, leaveTypeId: types.unpaid.id, startDate: new Date("2026-02-23T00:00:00Z"), endDate: new Date("2026-02-27T00:00:00Z"), days: 5, reason: "Unpaid", status: "APPROVED" },
   });
 
-  const session = (u: { id: string; role: Session["role"]; name: string }, employeeId: string | null = null): Session => ({ userId: u.id, role: u.role, employeeId, name: u.name });
-  const empSession = async (e: { id: string; userId: string | null; fullName: string }) => ({ userId: e.userId!, role: "EMPLOYEE" as const, employeeId: e.id, name: e.fullName });
+  const session = (u: { id: string; role: Session["role"]; name: string }, employeeId: string | null = null): Session => ({ userId: u.id, companyId: 1, role: u.role, employeeId, name: u.name });
+  const empSession = async (e: { id: string; userId: string | null; fullName: string }) => ({ userId: e.userId!, companyId: 1, role: "EMPLOYEE" as const, employeeId: e.id, name: e.fullName });
 
   return {
     depts: { eng, sales },

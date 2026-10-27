@@ -62,7 +62,7 @@ describe.skipIf(!hasDb)("QA-3 leave rules, races and integrity", () => {
 
   describe("working days, holidays and overlap edges", () => {
     it("a leave spanning a weekend and a holiday counts only working days", async () => {
-      await db.holiday.create({ data: { date: new Date("2026-11-11T00:00:00Z"), name: "Iqbal Day" } });
+      await db.holiday.create({ data: { companyId: 1, date: new Date("2026-11-11T00:00:00Z"), name: "Iqbal Day" } });
       const p = await previewLeave(fx.as.E, { type: "casual", start: "2026-11-09", end: "2026-11-15", reason: "x" });
       expect(p.dates).toEqual(["2026-11-09", "2026-11-10", "2026-11-12", "2026-11-13"]); // Mon Tue (Wed holiday) Thu Fri
       expect(p.notes.join(" ")).toMatch(/2026-11-11/);
@@ -95,7 +95,7 @@ describe.skipIf(!hasDb)("QA-3 leave rules, races and integrity", () => {
       // E has used 9 of 10 casual days in 2026.
       const casual = fx.types.casual.id;
       await db.leaveRequest.create({
-        data: { employeeId: fx.emp.E.id, leaveTypeId: casual, startDate: new Date("2026-08-03T00:00:00Z"), endDate: new Date("2026-08-13T00:00:00Z"), days: 9, reason: "x", status: "APPROVED" },
+        data: { companyId: 1, employeeId: fx.emp.E.id, leaveTypeId: casual, startDate: new Date("2026-08-03T00:00:00Z"), endDate: new Date("2026-08-13T00:00:00Z"), days: 9, reason: "x", status: "APPROVED" },
       });
       // 31 Dec (2026) + 1 Jan (2027): 1 day each → fits.
       const ok = await previewLeave(fx.as.E, { type: "casual", start: "2026-12-31", end: "2027-01-01", reason: "x" });
@@ -111,18 +111,18 @@ describe.skipIf(!hasDb)("QA-3 leave rules, races and integrity", () => {
     let n = 0;
     const freshEmployee = async () => {
       n++;
-      const u = await db.user.create({ data: { email: `race${n}@qa.test`, passwordHash: "x", role: "EMPLOYEE" } });
+      const u = await db.user.create({ data: { companyId: 1, email: `race${n}@qa.test`, passwordHash: "x", role: "EMPLOYEE" } });
       const e = await db.employee.create({
-        data: { code: `RACE${n}`, fullName: `Race ${n}`, email: `race${n}@qa.test`, departmentId: fx.depts.eng.id, joinDate: new Date("2025-01-01T00:00:00Z"), status: "ACTIVE", basicSalary: 1, userId: u.id },
+        data: { companyId: 1, code: `RACE${n}`, fullName: `Race ${n}`, email: `race${n}@qa.test`, departmentId: fx.depts.eng.id, joinDate: new Date("2025-01-01T00:00:00Z"), status: "ACTIVE", basicSalary: 1, userId: u.id },
       });
-      return { id: e.id, session: { userId: u.id, role: "EMPLOYEE" as const, employeeId: e.id, name: e.fullName } };
+      return { id: e.id, session: { userId: u.id, companyId: 1, role: "EMPLOYEE" as const, employeeId: e.id, name: e.fullName } };
     };
 
     it("stress (5 rounds): approvals that together exceed the balance never both succeed", async () => {
       for (let i = 0; i < 5; i++) {
         const emp = await freshEmployee();
         const pend = (s: string, e: string) =>
-          db.leaveRequest.create({ data: { employeeId: emp.id, leaveTypeId: fx.types.annual.id, startDate: new Date(`${s}T00:00:00Z`), endDate: new Date(`${e}T00:00:00Z`), days: 8, reason: "x" } });
+          db.leaveRequest.create({ data: { companyId: 1, employeeId: emp.id, leaveTypeId: fx.types.annual.id, startDate: new Date(`${s}T00:00:00Z`), endDate: new Date(`${e}T00:00:00Z`), days: 8, reason: "x" } });
         const [a, b] = [await pend("2026-11-30", "2026-12-09"), await pend("2026-12-14", "2026-12-23")];
         const r = await Promise.allSettled([decideLeave(fx.hr, a.id, { decision: "APPROVED" }), decideLeave(fx.hr2, b.id, { decision: "APPROVED" })]);
         expect(r.filter((x) => x.status === "fulfilled")).toHaveLength(1);
@@ -186,7 +186,7 @@ describe.skipIf(!hasDb)("QA-3 leave rules, races and integrity", () => {
         for (const r of results) if (r.status === "rejected") expect(r.reason).toMatchObject({ status: 409 });
         const run = await getRun(fx.hr, month);
         expect(run.status).toBe("FINALIZED");
-        const expected = (await db.payrollRun.findUniqueOrThrow({ where: { month }, include: { _count: { select: { payslips: true } } } }))._count.payslips;
+        const expected = (await db.payrollRun.findUniqueOrThrow({ where: { companyId_month: { companyId: 1, month } }, include: { _count: { select: { payslips: true } } } }))._count.payslips;
         expect(run.payslips.length).toBe(expected);
         expect(run.payslips.length).toBeGreaterThan(0);
         await expect(createOrRecomputeDraft(fx.hr, month)).rejects.toMatchObject({ status: 409 });

@@ -111,9 +111,9 @@ describe.skipIf(!hasDb)("payroll runs and payslips (DB + routes)", () => {
   it("deducts approved unpaid leave on recompute", async () => {
     const { start, end } = monthRange(month);
     const day = workingDays(start, end, [0, 6], new Set()).at(-1)!;
-    const unpaid = await db.leaveType.findUniqueOrThrow({ where: { code: "unpaid" } });
+    const unpaid = await db.leaveType.findUniqueOrThrow({ where: { companyId_code: { companyId: 1, code: "unpaid" } } });
     await db.leaveRequest.create({
-      data: { employeeId: ids.E002, leaveTypeId: unpaid.id, startDate: toDate(day), endDate: toDate(day), days: 1, reason: "Personal", status: "APPROVED" },
+      data: { companyId: 1, employeeId: ids.E002, leaveTypeId: unpaid.id, startDate: toDate(day), endDate: toDate(day), days: 1, reason: "Personal", status: "APPROVED" },
     });
     expect((await call(runsRoute.POST, { userId: hr, body: { month } })).status).toBe(200);
     const run = await call(h(runRoute.GET), { userId: admin, params: { month } });
@@ -128,7 +128,7 @@ describe.skipIf(!hasDb)("payroll runs and payslips (DB + routes)", () => {
     const joinDay = days[Math.floor(days.length / 2)];
     const dept = await db.department.findFirstOrThrow();
     const emp = await db.employee.create({
-      data: { code: "E099", fullName: "New Joiner", email: "new@demo.test", departmentId: dept.id, joinDate: toDate(joinDay), status: "PROBATION", basicSalary: 100_000 },
+      data: { companyId: 1, code: "E099", fullName: "New Joiner", email: "new@demo.test", departmentId: dept.id, joinDate: toDate(joinDay), status: "PROBATION", basicSalary: 100_000 },
     });
     await call(runsRoute.POST, { userId: hr, body: { month } });
     const run = await call(h(runRoute.GET), { userId: hr, params: { month } });

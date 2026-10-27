@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { audit, notify } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { assertRole, type Session } from "@/lib/session";
 
 // M9 Comms & Audit: announcements (Admin/HR post, everyone reads), in-app notifications (own only),
@@ -23,7 +24,7 @@ export async function listAnnouncements(limit = 10) {
 export async function postAnnouncement(actor: Session, input: z.infer<typeof announcementSchema>) {
   assertRole(actor, "ADMIN", "HR");
   return db.$transaction(async (tx) => {
-    const a = await tx.announcement.create({ data: { ...input, authorId: actor.userId, authorName: actor.name ?? "" } });
+    const a = await tx.announcement.create({ data: { ...input, companyId: currentCompanyId(), authorId: actor.userId, authorName: actor.name ?? "" } });
     const recipients = await tx.user.findMany({ where: { isActive: true, id: { not: actor.userId } }, select: { id: true } });
     await notify(
       recipients.map((r) => r.id),

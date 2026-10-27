@@ -1,5 +1,6 @@
 import { assistant as assistantMessage, user as userMessage, type AgentInputItem, type Session as AgentSession } from "@openai/agents";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { HttpError } from "@/lib/errors";
 
 // Chat history for the assistant, stored in Postgres behind the Agents SDK Session interface.
@@ -57,7 +58,7 @@ export class PrismaChatSession implements AgentSession {
     const rows = items.map(chatText).filter((m): m is ChatText => m !== null);
     if (rows.length === 0) return;
     await db.$transaction([
-      db.chatMessage.createMany({ data: rows.map((m) => ({ conversationId: this.conversationId, ...m })) }),
+      db.chatMessage.createMany({ data: rows.map((m) => ({ companyId: currentCompanyId(), conversationId: this.conversationId, ...m })) }),
       db.chatConversation.update({ where: { id: this.conversationId }, data: { updatedAt: new Date() } }),
     ]);
   }
@@ -81,7 +82,7 @@ export class PrismaChatSession implements AgentSession {
 export async function openChatSession(userId: string, id: string, firstQuestion: string): Promise<PrismaChatSession> {
   const conversation = await db.chatConversation.upsert({
     where: { id },
-    create: { id, userId, title: firstQuestion.slice(0, TITLE_LENGTH) },
+    create: { id, companyId: currentCompanyId(), userId, title: firstQuestion.slice(0, TITLE_LENGTH) },
     update: {},
     select: { userId: true },
   });

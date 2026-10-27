@@ -47,7 +47,7 @@ describe.skipIf(!hasDb)("M7 dashboards + M9 comms & audit", () => {
 
     it("counts pending leave and attendance corrections as approvals", async () => {
       await db.attendanceCorrection.create({
-        data: { employeeId: sara.employeeId!, date: toDate(addDays(today, -2)), requestedCheckIn: new Date(), reason: "forgot to check in" },
+        data: { companyId: 1, employeeId: sara.employeeId!, date: toDate(addDays(today, -2)), requestedCheckIn: new Date(), reason: "forgot to check in" },
       });
       const { body } = await call(dashboardRoute.GET, { userId: hr.userId, url: "/api/dashboard" });
       expect(body.kpis.approvals).toEqual({ pendingLeave: 1, pendingAttendanceCorrections: 1, total: 2 });

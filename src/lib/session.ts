@@ -5,6 +5,8 @@ export type Role = "ADMIN" | "HR" | "EMPLOYEE";
 /** The signed-in user. Every service takes this as its first argument so scope is checked in one place. */
 export interface Session {
   userId: string;
+  /** The user's company. Every query in the request is scoped to it (lib/tenant.ts, lib/db.ts). */
+  companyId: number;
   role: Role;
   /** Admin accounts may have no employee record. */
   employeeId: string | null;

@@ -57,11 +57,13 @@ export async function seedDemo(db: PrismaClient) {
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
   await db.companySettings.create({ data: { id: 1, companyName: "Demo Co", officeLat: 24.8607, officeLng: 67.0011 } });
+  // The demo company is always id 1; move the id sequence past it so "Create your company" gets the next id.
+  await db.$executeRawUnsafe(`SELECT setval(pg_get_serial_sequence('settings', 'id'), (SELECT MAX(id) FROM settings))`);
   const [eng, sales, hrDept] = await Promise.all(
-    ["Engineering", "Sales", "Human Resources"].map((name) => db.department.create({ data: { name } })),
+    ["Engineering", "Sales", "Human Resources"].map((name) => db.department.create({ data: { companyId: 1, name } })),
   );
   const [dev, exec, hrOfficer] = await Promise.all(
-    ["Software Engineer", "Sales Executive", "HR Officer"].map((title) => db.designation.create({ data: { title } })),
+    ["Software Engineer", "Sales Executive", "HR Officer"].map((title) => db.designation.create({ data: { companyId: 1, title } })),
   );
   const types = Object.fromEntries(
     await Promise.all(
@@ -70,12 +72,12 @@ export async function seedDemo(db: PrismaClient) {
         { code: "sick", name: "Sick", yearlyQuota: 8 },
         { code: "casual", name: "Casual", yearlyQuota: 10 },
         { code: "unpaid", name: "Unpaid", yearlyQuota: null, isPaid: false },
-      ].map(async (t) => [t.code, await db.leaveType.create({ data: t })]),
+      ].map(async (t) => [t.code, await db.leaveType.create({ data: { companyId: 1, ...t } })]),
     ),
   );
-  await db.holiday.create({ data: { date: toDate(`${year}-12-25`), name: "Quaid-e-Azam Day" } });
+  await db.holiday.create({ data: { companyId: 1, date: toDate(`${year}-12-25`), name: "Quaid-e-Azam Day" } });
 
-  await db.user.create({ data: { email: "admin@demo.test", name: "Demo Admin", passwordHash, role: "ADMIN" } });
+  await db.user.create({ data: { companyId: 1, email: "admin@demo.test", name: "Demo Admin", passwordHash, role: "ADMIN" } });
 
   const people = [
     { code: "E001", name: "Hina Khan", email: "hr@demo.test", role: "HR" as const, dept: hrDept, des: hrOfficer, basic: 120_000 },
@@ -86,9 +88,9 @@ export async function seedDemo(db: PrismaClient) {
   ];
   const emp: Record<string, string> = {};
   for (const p of people) {
-    const user = await db.user.create({ data: { email: p.email, passwordHash, role: p.role } });
+    const user = await db.user.create({ data: { companyId: 1, email: p.email, passwordHash, role: p.role } });
     const e = await db.employee.create({
-      data: {
+      data: { companyId: 1,
         code: p.code,
         fullName: p.name,
         email: p.email,
@@ -113,20 +115,20 @@ export async function seedDemo(db: PrismaClient) {
   const bilalSick = days.slice(3, 5);
   if (bilalSick.length === 2) {
     await db.leaveRequest.create({
-      data: { employeeId: emp.E004, leaveTypeId: types.sick.id, startDate: toDate(bilalSick[0]), endDate: toDate(bilalSick[1]), days: 2, reason: "Fever", status: "APPROVED" },
+      data: { companyId: 1, employeeId: emp.E004, leaveTypeId: types.sick.id, startDate: toDate(bilalSick[0]), endDate: toDate(bilalSick[1]), days: 2, reason: "Fever", status: "APPROVED" },
     });
   }
   // Sara: 1 approved sick day earlier this year → 7 sick days left.
   await db.leaveRequest.create({
-    data: { employeeId: emp.E003, leaveTypeId: types.sick.id, startDate: toDate(`${year}-02-10`), endDate: toDate(`${year}-02-10`), days: 1, reason: "Doctor visit", status: "APPROVED" },
+    data: { companyId: 1, employeeId: emp.E003, leaveTypeId: types.sick.id, startDate: toDate(`${year}-02-10`), endDate: toDate(`${year}-02-10`), days: 1, reason: "Doctor visit", status: "APPROVED" },
   });
   // Zara: approved casual leave covering today (if today is a working day it shows as on leave).
   await db.leaveRequest.create({
-    data: { employeeId: emp.E005, leaveTypeId: types.casual.id, startDate: toDate(today), endDate: toDate(addDays(today, 1)), days: 2, reason: "Family event", status: "APPROVED" },
+    data: { companyId: 1, employeeId: emp.E005, leaveTypeId: types.casual.id, startDate: toDate(today), endDate: toDate(addDays(today, 1)), days: 2, reason: "Family event", status: "APPROVED" },
   });
   // Ali: a pending request, for the "pending approvals" KPI.
   await db.leaveRequest.create({
-    data: { employeeId: emp.E002, leaveTypeId: types.annual.id, startDate: toDate(addDays(today, 14)), endDate: toDate(addDays(today, 15)), days: 2, reason: "Trip", status: "PENDING" },
+    data: { companyId: 1, employeeId: emp.E002, leaveTypeId: types.annual.id, startDate: toDate(addDays(today, 14)), endDate: toDate(addDays(today, 15)), days: 2, reason: "Trip", status: "PENDING" },
   });
 
   const rows: { employeeId: string; date: Date; checkIn: Date; checkOut: Date | null; status: "PRESENT" | "LATE" | "HALF_DAY" }[] = [];
@@ -143,18 +145,18 @@ export async function seedDemo(db: PrismaClient) {
     if (!bilalSick.includes(day)) push("E004", i === 0 ? "09:20" : "09:10", i === 9 ? null : "17:15", i === 0 ? "LATE" : "PRESENT");
     push("E005", "09:00", "17:00", "PRESENT");
   });
-  await db.attendance.createMany({ data: rows });
+  await db.attendance.createMany({ data: rows.map((r) => ({ companyId: 1, ...r })) });
 
   // Last month's payroll, finalized, so employees have a payslip.
   const last = addDays(start, -1).slice(0, 7);
-  const run = await db.payrollRun.create({ data: { month: last, status: "FINALIZED", createdById: "dev-seed", finalizedById: "dev-seed", finalizedAt: new Date() } });
+  const run = await db.payrollRun.create({ data: { companyId: 1, month: last, status: "FINALIZED", createdById: "dev-seed", finalizedById: "dev-seed", finalizedAt: new Date() } });
   const lastRange = monthRange(last);
   const wd = workingDays(lastRange.start, lastRange.end, [0, 6], new Set()).length;
   for (const p of people) {
     const gross = p.basic * 1.5;
     const tax = monthlyTax(gross);
     await db.payslip.create({
-      data: {
+      data: { companyId: 1,
         runId: run.id, employeeId: emp[p.code], basic: p.basic, hra: p.basic * 0.4, medical: p.basic * 0.1,
         gross, deductions: 0, tax, net: gross - tax, workingDays: wd, paidDays: wd,
       },

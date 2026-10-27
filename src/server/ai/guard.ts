@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { currentCompanyId } from "@/lib/tenant";
 import { HttpError, tooManyRequests, unauthorized } from "@/lib/errors";
 import type { Session } from "@/lib/session";
 
@@ -40,7 +41,7 @@ export async function assertWithinRateLimit(userId: string, now = new Date()): P
 async function log(actor: Session, feature: AiFeature, input: string, row: Partial<Prisma.AiLogUncheckedCreateInput>) {
   try {
     await db.aiLog.create({
-      data: { userId: actor.userId, role: actor.role, feature, input: input.slice(0, 4000), status: "ok", latencyMs: 0, ...row },
+      data: { companyId: currentCompanyId(), userId: actor.userId, role: actor.role, feature, input: input.slice(0, 4000), status: "ok", latencyMs: 0, ...row },
     });
   } catch (err) {
     // Never fail the user's request because the log write failed.
