@@ -178,7 +178,7 @@ export default function EmployeesPage() {
             <div className="hidden md:block">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:border-zinc-800/80 dark:bg-zinc-900/40">
                     <th className="px-5 py-3 font-medium">Employee</th>
                     <th className="px-3 py-3 font-medium">Code</th>
                     <th className="px-3 py-3 font-medium">Department</th>
@@ -206,7 +206,7 @@ export default function EmployeesPage() {
                             >
                               {r.fullName}
                             </Link>
-                            <p className="truncate text-xs text-zinc-500">{r.email}</p>
+                            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{r.email}</p>
                           </div>
                         </div>
                       </td>
@@ -244,11 +244,11 @@ export default function EmployeesPage() {
                         <p className="truncate font-medium">{r.fullName}</p>
                         <StatusBadge status={r.status} />
                       </div>
-                      <p className="mt-0.5 truncate text-xs text-zinc-500">
+                      <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
                         <span className="font-mono">{r.code}</span> · {r.department}
                         {r.designation ? ` · ${r.designation}` : ""}
                       </p>
-                      <p className="mt-0.5 text-xs text-zinc-400">Joined {fmtDate(r.joinDate)}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">Joined {fmtDate(r.joinDate)}</p>
                     </div>
                   </Link>
                 </li>
@@ -393,7 +393,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
             <Input required type="number" min={1} step="1" inputMode="numeric" value={f.basicSalary} onChange={set("basicSalary")} placeholder="e.g. 100000" />
           </Field>
           <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/40" aria-live="polite">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500">Monthly structure</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Monthly structure</p>
             <dl className="mt-2 space-y-1.5">
               <PreviewRow k="Basic" v={preview ? money(basic) : "—"} />
               <PreviewRow k="HRA (40%)" v={preview ? money(preview.hra) : "—"} />
@@ -412,7 +412,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
 function PreviewRow({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-zinc-500">{k}</dt>
+      <dt className="text-zinc-500 dark:text-zinc-400">{k}</dt>
       <dd className={cx("tabular-nums", strong ? "font-semibold text-teal-700 dark:text-teal-400" : "text-zinc-800 dark:text-zinc-200")}>{v}</dd>
     </div>
   );
@@ -488,7 +488,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
           return (
             <li key={s} className="flex flex-col gap-2" aria-current={state === "current" ? "step" : undefined}>
               <span className={cx("h-1 rounded-full", state === "todo" ? "bg-zinc-200 dark:bg-zinc-800" : "bg-teal-500")} />
-              <span className={cx("text-xs font-medium", state === "todo" ? "text-zinc-400" : "text-zinc-800 dark:text-zinc-200")}>
+              <span className={cx("text-xs font-medium", state === "todo" ? "text-zinc-500 dark:text-zinc-400" : "text-zinc-800 dark:text-zinc-200")}>
                 {n}. {s}
               </span>
             </li>
@@ -501,7 +501,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
           <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 px-4 py-7 text-center transition-colors hover:border-teal-400 hover:bg-teal-50/30 dark:border-zinc-700 dark:hover:bg-teal-950/20">
             <PIcon name="upload" className="h-6 w-6 text-teal-600" />
             <span className="font-medium">{fileName ?? "Choose a CSV file"}</span>
-            <span className="text-xs text-zinc-500">or paste the rows below</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">or paste the rows below</span>
             <input
               type="file"
               accept=".csv,text/csv"
@@ -527,7 +527,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
             className="font-mono text-xs"
             aria-label="CSV rows"
           />
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             <span>Columns: code, full_name, email, phone, department, designation, join_date (YYYY-MM-DD), basic_salary, gender, status.</span>
             <a href={templateHref} download="employees-template.csv" className="font-medium text-teal-700 hover:underline dark:text-teal-400">
               Download template
@@ -550,7 +550,7 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
               <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
                 <div className="max-h-72 overflow-auto">
                   <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-zinc-50 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:bg-zinc-900">
+                    <thead className="sticky top-0 bg-zinc-50 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:bg-zinc-900">
                       <tr>
                         <th className="px-3 py-2 font-medium">Row</th>
                         <th className="px-3 py-2 font-medium">Field</th>
@@ -589,9 +589,9 @@ function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => v
               <li key={c.email} className="flex flex-col gap-1 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-medium">
-                    {c.fullName} <span className="font-mono text-xs text-zinc-500">{c.code}</span>
+                    {c.fullName} <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">{c.code}</span>
                   </p>
-                  <p className="truncate text-xs text-zinc-500">{c.email}</p>
+                  <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{c.email}</p>
                 </div>
                 <code className="w-fit rounded-md bg-zinc-100 px-2 py-1 font-mono text-sm tracking-wider select-all dark:bg-zinc-900">{c.tempPassword}</code>
               </li>
@@ -607,7 +607,7 @@ function Tally({ label, value, tone = "default" }: { label: string; value: numbe
   const c = { default: "text-zinc-900 dark:text-zinc-100", good: "text-teal-700 dark:text-teal-400", bad: "text-red-600 dark:text-red-400" }[tone];
   return (
     <div className="rounded-xl border border-zinc-200 px-3 py-2.5 dark:border-zinc-800">
-      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className={cx("mt-1 text-xl font-semibold tabular-nums", c)}>{value}</p>
     </div>
   );

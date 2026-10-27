@@ -46,7 +46,7 @@ export default function LoginPage() {
         <Button type="submit" loading={busy} className="w-full">
           Sign in
         </Button>
-        <div className="relative py-1 text-center text-xs text-zinc-400">
+        <div className="relative py-1 text-center text-xs text-zinc-500 dark:text-zinc-400">
           <span className="absolute inset-x-0 top-1/2 h-px bg-zinc-200 dark:bg-zinc-800" aria-hidden />
           <span className="relative bg-background px-2">New here?</span>
         </div>
@@ -56,7 +56,7 @@ export default function LoginPage() {
         >
           Create your company
         </Link>
-        <p className="text-center text-xs text-zinc-500">HR and employee logins are created inside a company by its Admin and HR.</p>
+        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">HR and employee logins are created inside a company by its Admin and HR.</p>
       </form>
     </AuthCard>
   );

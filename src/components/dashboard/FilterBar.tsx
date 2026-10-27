@@ -70,7 +70,7 @@ export function FilterBar({
       <div className="flex items-center justify-between gap-3 md:hidden">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{rangeLabel(applied)}</p>
-          <p className="truncate text-xs text-zinc-500">{applied.department || "All departments"}</p>
+          <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{applied.department || "All departments"}</p>
         </div>
         <button
           type="button"

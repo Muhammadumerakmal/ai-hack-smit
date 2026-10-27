@@ -122,7 +122,7 @@ export function Employee360({ id, mode }: { id: string; mode: "hr" | "self" | "v
 }
 
 function Contact({ icon, value, href, empty = "—" }: { icon: string; value: string | null | undefined; href?: string; empty?: string }) {
-  const content = value ? <span className="truncate">{value}</span> : <span className="text-zinc-400">{empty}</span>;
+  const content = value ? <span className="truncate">{value}</span> : <span className="text-zinc-500 dark:text-zinc-400">{empty}</span>;
   return (
     <li className="flex min-w-0 items-center gap-2 text-zinc-700 dark:text-zinc-300">
       <PIcon name={icon} className="h-4 w-4 shrink-0 text-zinc-400" />
@@ -228,7 +228,7 @@ function FaceCard({
             <span className="inline-flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-teal-500" aria-hidden />
               Face enrolled on {fmtDate(face.enrolledAt)}
-              {mode === "self" && <span className="text-zinc-500">· ask HR to reset it if you need to enrol again</span>}
+              {mode === "self" && <span className="text-zinc-500 dark:text-zinc-400">· ask HR to reset it if you need to enrol again</span>}
             </span>
           ) : (
             <span className="inline-flex items-center gap-2 text-zinc-600 dark:text-zinc-300">
@@ -318,7 +318,7 @@ function LeaveTab({ data }: { data: Employee360Data }) {
                   <p className="text-sm font-medium">
                     {l.type} leave · {l.days} day{l.days === 1 ? "" : "s"}
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {fmtDate(l.start)}
                     {l.end !== l.start ? ` – ${fmtDate(l.end)}` : ""}
                     {l.reason ? ` · ${l.reason}` : ""}
@@ -352,7 +352,7 @@ function PayrollTab({ data }: { data: Employee360Data }) {
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{monthLabel(s.month)}</p>
-                  <p className="text-xs text-zinc-500 tabular-nums">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
                     Gross {money(s.gross)} · Net <span className="font-medium text-zinc-700 dark:text-zinc-300">{money(s.net)}</span>
                   </p>
                 </div>
@@ -387,7 +387,7 @@ function SalaryCard({ salary }: { salary: Employee360Data["salary"] }) {
         <Line k="Medical (10%)" v={money(salary.medical)} />
       </dl>
       <div className="mt-4 flex items-baseline justify-between border-t border-zinc-200 pt-3 dark:border-zinc-800">
-        <span className="text-sm text-zinc-500">Gross</span>
+        <span className="text-sm text-zinc-500 dark:text-zinc-400">Gross</span>
         <span className="text-xl font-semibold tabular-nums text-teal-700 dark:text-teal-400">{money(salary.gross)}</span>
       </div>
     </Surface>
@@ -395,14 +395,14 @@ function SalaryCard({ salary }: { salary: Employee360Data["salary"] }) {
 }
 
 function LeaveMeters({ balances, compact }: { balances: Employee360Data["leaveBalance"]; compact?: boolean }) {
-  if (!balances.length) return <p className="mt-4 text-sm text-zinc-500">No leave types configured.</p>;
+  if (!balances.length) return <p className="mt-4 text-sm text-zinc-500 dark:text-zinc-400">No leave types configured.</p>;
   return (
     <ul className={cx("mt-5", compact ? "space-y-3.5" : "space-y-4")}>
       {balances.map((b) => (
         <li key={b.type}>
           <div className="flex items-baseline justify-between gap-2 text-sm">
             <span className="font-medium">{b.name}</span>
-            <span className="tabular-nums text-zinc-500">
+            <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
               {b.remaining == null ? (
                 "Unlimited"
               ) : (
@@ -418,7 +418,7 @@ function LeaveMeters({ balances, compact }: { balances: Employee360Data["leaveBa
             </div>
           )}
           {!compact && (
-            <p className="mt-1 text-xs text-zinc-500">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               {b.usedApproved} used{b.pending ? ` · ${b.pending} pending approval` : ""}
             </p>
           )}
@@ -431,8 +431,8 @@ function LeaveMeters({ balances, compact }: { balances: Employee360Data["leaveBa
 function Item({ k, v, mono }: { k: string; v: string | null | undefined; mono?: boolean }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-zinc-500">{k}</dt>
-      <dd className={cx("mt-1 truncate text-zinc-900 dark:text-zinc-100", mono && "font-mono text-[13px]")}>{v || <span className="text-zinc-400">Not set</span>}</dd>
+      <dt className="text-xs text-zinc-500 dark:text-zinc-400">{k}</dt>
+      <dd className={cx("mt-1 truncate text-zinc-900 dark:text-zinc-100", mono && "font-mono text-[13px]")}>{v || <span className="text-zinc-500 dark:text-zinc-400">Not set</span>}</dd>
     </div>
   );
 }
@@ -440,7 +440,7 @@ function Item({ k, v, mono }: { k: string; v: string | null | undefined; mono?: 
 function Line({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-zinc-500">{k}</dt>
+      <dt className="text-zinc-500 dark:text-zinc-400">{k}</dt>
       <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">{v}</dd>
     </div>
   );
@@ -450,7 +450,7 @@ function MiniStat({ label, value, tone = "default" }: { label: string; value: Re
   const c = { default: "text-zinc-900 dark:text-zinc-50", good: "text-teal-700 dark:text-teal-400", warn: "text-amber-600 dark:text-amber-400", bad: "text-red-600 dark:text-red-400" }[tone];
   return (
     <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 px-3.5 py-3 dark:border-zinc-800/80 dark:bg-zinc-900/40">
-      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className={cx("mt-1.5 text-xl font-semibold tabular-nums", c)}>{value}</p>
     </div>
   );
@@ -667,7 +667,7 @@ function HrEdit({ data, onClose, onSaved }: { data: Employee360Data; onClose: ()
             <Input type="number" min={1} inputMode="numeric" value={f.basicSalary} onChange={set("basicSalary")} />
           </Field>
           <div className="flex flex-col justify-end rounded-xl border border-zinc-200 bg-zinc-50/70 px-3.5 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/40">
-            <span className="text-xs text-zinc-500">New gross</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">New gross</span>
             <span className="text-lg font-semibold tabular-nums text-teal-700 dark:text-teal-400">{basic > 0 ? money(basic * 1.5) : "—"}</span>
           </div>
         </FormSection>

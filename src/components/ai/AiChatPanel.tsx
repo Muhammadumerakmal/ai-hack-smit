@@ -165,7 +165,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
                 I answer questions about attendance, leave, payroll and policy from {SCOPE[role]}. I can&apos;t change anything.
               </p>
             </div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-400">Try asking</p>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Try asking</p>
             <div className="space-y-2">
               {SUGGESTIONS[role].map((s) => (
                 <button
@@ -268,7 +268,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
             </svg>
           </button>
         </div>
-        <p className="mt-1.5 px-1 text-[10.5px] text-zinc-400 dark:text-zinc-500">
+        <p className="mt-1.5 px-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           Enter to send · Shift+Enter for a new line · AI answers can be wrong, so check important numbers on the dashboard.
         </p>
       </form>

@@ -58,14 +58,14 @@ export default function AuditPage() {
               {data.items.map((x) => (
                 <Fragment key={x.id}>
                   <tr>
-                    <Td className="whitespace-nowrap text-xs text-zinc-500">{fmtDateTime(x.createdAt)}</Td>
+                    <Td className="whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">{fmtDateTime(x.createdAt)}</Td>
                     <Td>
-                      {x.actorName || "—"} <span className="text-xs text-zinc-500">({x.actorRole})</span>
+                      {x.actorName || "—"} <span className="text-xs text-zinc-500 dark:text-zinc-400">({x.actorRole})</span>
                     </Td>
                     <Td>{x.action.replace(/_/g, " ")}</Td>
                     <Td>
                       {x.entity.replace(/_/g, " ")}
-                      {x.entityId && <span className="ml-1 font-mono text-[11px] text-zinc-400">{x.entityId.slice(-8)}</span>}
+                      {x.entityId && <span className="ml-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{x.entityId.slice(-8)}</span>}
                     </Td>
                     <Td>
                       {(x.before != null || x.after != null) && (
@@ -99,7 +99,7 @@ export default function AuditPage() {
 function JsonBlock({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <p className="mb-1 text-xs font-medium text-zinc-500">{label}</p>
+      <p className="mb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
       <pre className="max-h-64 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed dark:bg-zinc-950">{value == null ? "—" : JSON.stringify(value, null, 2)}</pre>
     </div>
   );

@@ -167,7 +167,7 @@ export function SmartLeaveForm({
           ))}
 
         {leaveTypesLoading && !leaveTypes.length && (
-          <p role="status" className="text-sm text-zinc-500">
+          <p role="status" className="text-sm text-zinc-500 dark:text-zinc-400">
             Loading leave types…
           </p>
         )}

@@ -20,7 +20,7 @@ export function AnnouncementFeed({ items, compact }: { items: Announcement[]; co
           <article className="min-w-0 flex-1">
             <header className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{a.authorName || "—"}</span>
-              <time dateTime={a.createdAt} className="text-[11px] text-zinc-500" title={new Date(a.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}>
+              <time dateTime={a.createdAt} className="text-[11px] text-zinc-500 dark:text-zinc-400" title={new Date(a.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Karachi" })}>
                 {timeAgo(a.createdAt)}
               </time>
             </header>

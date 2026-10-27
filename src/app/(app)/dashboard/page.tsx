@@ -341,7 +341,7 @@ function InsightPanels({ insights }: { insights: Insights }) {
                     <Link href={`/employees/${e.employeeId}`} className="truncate text-sm font-medium hover:underline">
                       {e.name}
                     </Link>
-                    <span className="text-xs text-zinc-500">{e.department}</span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">{e.department}</span>
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{e.factors.slice(0, 2).map((f) => f.detail).join(" · ")}</p>
                 </div>
@@ -357,7 +357,7 @@ function InsightPanels({ insights }: { insights: Insights }) {
             hint={r.scored ? `${plural(r.scored, "employee")} scored low on absence, lateness, unpaid leave and tenure.` : "Scores appear after 5 working days of attendance history."}
           />
         )}
-        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
+        <p className="mt-3 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           Rule-based score out of 100: absenteeism 30 · lateness 20 · rising absence 20 · unpaid leave 15 · tenure under a year 15. High ≥ 60, medium ≥ 35.
         </p>
       </Panel>
@@ -370,9 +370,9 @@ function InsightPanels({ insights }: { insights: Insights }) {
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-baseline justify-between gap-x-2">
                     <span className="text-sm font-medium">
-                      {f.name} <span className="font-normal text-zinc-500">· {f.department}</span>
+                      {f.name} <span className="font-normal text-zinc-500 dark:text-zinc-400">· {f.department}</span>
                     </span>
-                    <span className="text-xs text-zinc-500">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
                       {ANOMALY_LABEL[f.kind] ?? f.kind}
                       <span className="sr-only">, {f.severity} severity</span>
                     </span>
@@ -401,7 +401,7 @@ function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"]
           <div className="hidden overflow-x-auto sm:block">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800">
+                <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:border-zinc-800">
                   <th className="py-2.5 pr-3 font-medium">Department</th>
                   <th className="px-3 py-2.5 font-medium">Type</th>
                   <th className="px-3 py-2.5 text-right font-medium">Days</th>
@@ -427,7 +427,7 @@ function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"]
               <li key={`${u.department}-${u.type}`} className="rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-sm font-medium">{u.department}</span>
-                  <span className="shrink-0 text-xs text-zinc-500">
+                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                     {labelCase(u.type)} · {plural(u.days, "day")}
                   </span>
                 </div>
@@ -444,7 +444,7 @@ function UtilizationPanel({ rows }: { rows: CompanyDashboard["leaveUtilization"]
 }
 
 function UtilBar({ pct }: { pct: number | null }) {
-  if (pct == null) return <span className="text-xs text-zinc-500">No quota</span>;
+  if (pct == null) return <span className="text-xs text-zinc-500 dark:text-zinc-400">No quota</span>;
   return (
     <span className="flex items-center gap-2">
       <span className="h-1.5 w-full max-w-40 overflow-hidden rounded-full bg-teal-100 dark:bg-teal-950" aria-hidden>
@@ -551,7 +551,7 @@ function AdminCharts({ d }: { d: CompanyDashboard }) {
                     <span className="text-zinc-600 dark:text-zinc-300">
                       {x.action.replace(/_/g, " ")} · {x.entity.replace(/_/g, " ")}
                     </span>
-                    <span className="block text-[11px] text-zinc-400">{timeAgo(x.createdAt)}</span>
+                    <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">{timeAgo(x.createdAt)}</span>
                   </span>
                 </li>
               );
@@ -582,7 +582,7 @@ function WeekBars({ days, today }: { days: WeekDay[]; today: string }) {
           const isToday = d.date === today;
           return (
             <li key={d.date} className="flex h-full min-w-0 flex-col items-center justify-end gap-1.5" aria-label={`${dayName(d.date)}: ${d.future ? "upcoming" : `${d.hours} hours`}`}>
-              <span className={cx("text-[10px] tabular-nums", d.hours ? "font-medium text-zinc-700 dark:text-zinc-300" : "text-transparent")} aria-hidden>
+              <span className={cx("text-[11px] tabular-nums", d.hours ? "font-medium text-zinc-700 dark:text-zinc-300" : "text-transparent")} aria-hidden>
                 {d.hours}
               </span>
               <span className="flex w-full max-w-7 flex-1 items-end overflow-hidden rounded-md bg-zinc-100 dark:bg-zinc-800/70" aria-hidden>
@@ -592,7 +592,7 @@ function WeekBars({ days, today }: { days: WeekDay[]; today: string }) {
                 />
               </span>
               <span
-                className={cx("text-[11px]", isToday ? "font-semibold text-teal-700 dark:text-teal-300" : d.weekend || d.future ? "text-zinc-400" : "text-zinc-500")}
+                className={cx("text-[11px]", isToday ? "font-semibold text-teal-700 dark:text-teal-300" : d.weekend || d.future ? "text-zinc-500 dark:text-zinc-500" : "text-zinc-500 dark:text-zinc-400")}
                 aria-hidden
               >
                 {dayName(d.date).slice(0, 2)}
@@ -623,10 +623,10 @@ function PersonalView() {
               <div className="space-y-3">
                 <p className="text-3xl font-semibold tracking-tight">
                   {data.week.hours}
-                  <span className="ml-1 text-base font-medium text-zinc-500">/ {data.week.target} h</span>
+                  <span className="ml-1 text-base font-medium text-zinc-500 dark:text-zinc-400">/ {data.week.target} h</span>
                 </p>
                 <Meter label="Hours this week against the weekly target" value={data.week.hours} max={data.week.target} />
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {data.week.pctOfTarget == null ? "No hours yet this week" : `${data.week.pctOfTarget}% of the ${data.week.target} h target`}
                 </p>
                 <WeekBars days={data.week.days} today={data.week.end} />
@@ -673,17 +673,17 @@ function PersonalView() {
                 <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {data.leaveBalance.map((b) => (
                     <li key={b.type} className="rounded-xl border border-zinc-200 p-3 sm:p-4 dark:border-zinc-800">
-                      <p className="text-xs font-medium text-zinc-500">{b.name}</p>
+                      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{b.name}</p>
                       <p className="mt-1 text-2xl font-semibold tracking-tight">
                         {b.remaining == null ? "∞" : b.remaining}
-                        {b.quota != null && <span className="ml-1 text-sm font-medium text-zinc-400">/ {b.quota}</span>}
+                        {b.quota != null && <span className="ml-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">/ {b.quota}</span>}
                       </p>
                       {b.quota != null && (
                         <div className="mt-2">
                           <Meter label={`${b.name} days left`} value={b.remaining ?? 0} max={b.quota} />
                         </div>
                       )}
-                      <p className="mt-2 text-[11px] text-zinc-500">
+                      <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                         {b.quota == null ? "No yearly limit" : `${b.usedApproved} used`}
                         {b.pending ? ` · ${b.pending} pending` : ""}
                       </p>

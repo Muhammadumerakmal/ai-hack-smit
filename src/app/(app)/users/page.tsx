@@ -174,7 +174,7 @@ export default function UsersPage() {
                 onClick={() => setFilter(f.id)}
                 className={cx(
                   "flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors",
-                  filter === f.id ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200",
+                  filter === f.id ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200",
                 )}
               >
                 {f.label}
@@ -202,7 +202,7 @@ export default function UsersPage() {
             <div className="hidden md:block">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800/80 dark:bg-zinc-900/40">
+                  <tr className="border-b border-zinc-200/80 bg-zinc-50/70 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:border-zinc-800/80 dark:bg-zinc-900/40">
                     <th className="px-5 py-3 font-medium">User</th>
                     <th className="px-3 py-3 font-medium">Role</th>
                     <th className="px-3 py-3 font-medium">Status</th>
@@ -218,7 +218,7 @@ export default function UsersPage() {
                           <Avatar name={u.name || u.email} />
                           <div className="min-w-0">
                             <p className="truncate font-medium">{u.name || "—"}</p>
-                            <p className="truncate text-xs text-zinc-500">
+                            <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
                               {u.email}
                               {u.employee && (
                                 <>
@@ -255,7 +255,7 @@ export default function UsersPage() {
                   <Avatar name={u.name || u.email} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{u.name || "—"}</p>
-                    <p className="truncate text-xs text-zinc-500">{u.email}</p>
+                    <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{u.email}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       <RoleBadge role={u.role} />
                       <StatusBadge status={u.isActive ? "active" : "deactivated"} />
@@ -319,7 +319,7 @@ function Tile({ label, value, icon, tone = "default" }: { label: string; value: 
         <PIcon name={icon} className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-xs text-zinc-500">{label}</p>
+        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
         <p className={cx("text-xl font-semibold tabular-nums", c)}>{value}</p>
       </div>
     </Surface>

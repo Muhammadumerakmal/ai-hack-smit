@@ -205,7 +205,7 @@ export function ViewToggle({ value, onChange }: { value: "chart" | "table"; onCh
           onClick={() => onChange(v)}
           className={cx(
             "min-h-7 rounded-md px-2 capitalize transition-colors",
-            value === v ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200",
+            value === v ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200",
           )}
         >
           {v}

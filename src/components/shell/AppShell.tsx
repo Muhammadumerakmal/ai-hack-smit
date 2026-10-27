@@ -94,10 +94,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             <LogoMark />
             <div className="min-w-0 leading-tight">
               <p className="truncate text-sm font-semibold tracking-tight">HCM Lite</p>
-              <p className="truncate text-[11px] text-zinc-500">{me.companyName}</p>
+              <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{me.companyName}</p>
             </div>
           </div>
-          <p className="px-5 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500">Workspace</p>
+          <p className="px-5 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Workspace</p>
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main">
             {items.map((n) => {
               const active = pathname === n.href || pathname.startsWith(`${n.href}/`);
@@ -127,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <div className="min-w-0 flex-1 leading-tight">
                 <p className="truncate text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{me.name}</p>
-                <p className="truncate text-[11px] text-zinc-500">{me.email}</p>
+                <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{me.email}</p>
               </div>
               <span className="shrink-0 rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-700 ring-1 ring-inset ring-teal-600/20 dark:bg-zinc-950 dark:text-teal-300">
                 {roleLabel(me.role)}
@@ -154,7 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <div className="hidden leading-tight sm:block">
                 <p className="text-sm font-medium">{me.name}</p>
-                <p className="text-[11px] text-zinc-500">{roleLabel(me.role)}</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{roleLabel(me.role)}</p>
               </div>
             </div>
             <button
@@ -229,16 +229,16 @@ function NotificationBell() {
                 </button>
               </li>
             ) : loading && !data ? (
-              <li role="status" className="px-3 py-6 text-center text-xs text-zinc-500">Loading notifications…</li>
+              <li role="status" className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">Loading notifications…</li>
             ) : data && !data.items.length ? (
-              <li className="px-3 py-6 text-center text-xs text-zinc-500">Nothing new.</li>
+              <li className="px-3 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">Nothing new.</li>
             ) : null}
             {data?.items.map((n) => {
               const content = (
                 <>
                   <p className="text-sm font-medium">{n.title}</p>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">{n.body}</p>
-                  <p className="mt-0.5 text-[11px] text-zinc-400">{fmtDateTime(n.createdAt)}</p>
+                  <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">{fmtDateTime(n.createdAt)}</p>
                 </>
               );
               const className = "block px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900";

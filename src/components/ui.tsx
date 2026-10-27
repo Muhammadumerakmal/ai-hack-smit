@@ -40,7 +40,7 @@ export function Stat({ label, value, hint, tone = "default" }: { label: string; 
     <div className="rounded-2xl p-4 border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none">
       <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className={cx("mt-2 text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums", color)}>{value}</p>
-      {hint && <p className="mt-2 text-xs text-zinc-500">{hint}</p>}
+      {hint && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
     </div>
   );
 }
@@ -81,7 +81,7 @@ export function Field({ label, hint, error, children, className }: { label: stri
     <label className={cx("block space-y-1.5", className)}>
       <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
       {children}
-      {error ? <span className="block text-xs text-red-600">{error}</span> : hint ? <span className="block text-xs text-zinc-500">{hint}</span> : null}
+      {error ? <span className="block text-xs text-red-600">{error}</span> : hint ? <span className="block text-xs text-zinc-500 dark:text-zinc-400">{hint}</span> : null}
     </label>
   );
 }
@@ -124,7 +124,7 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
     <div className="-mx-4 overflow-x-auto sm:mx-0">
       <table className="w-full min-w-[560px] text-left text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800">
+          <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:border-zinc-800">
             {head.map((h, i) => (
               <th key={i} className="px-3 py-2.5 font-medium first:pl-4 sm:first:pl-3">
                 {h}
@@ -145,7 +145,7 @@ export const Td = ({ children, className }: { children?: ReactNode; className?: 
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 py-8 text-sm text-zinc-500" role="status">
+    <div className="flex items-center gap-2 py-8 text-sm text-zinc-500 dark:text-zinc-400" role="status">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" aria-hidden />
       {label}
     </div>
@@ -156,7 +156,7 @@ export function EmptyState({ title, hint, action }: { title: string; hint?: stri
   return (
     <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-12 text-center dark:border-zinc-700 dark:bg-zinc-900/30">
       <p className="text-sm font-medium">{title}</p>
-      {hint && <p className="max-w-sm text-xs text-zinc-500">{hint}</p>}
+      {hint && <p className="max-w-sm text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
       {action}
     </div>
   );
@@ -208,7 +208,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
     >
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{title}</h2>
-        <button onClick={onClose} aria-label="Close" className="rounded p-1 text-lg leading-none text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+        <button onClick={onClose} aria-label="Close" className="rounded p-1 text-lg leading-none text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">
           ×
         </button>
       </div>
@@ -229,7 +229,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: 
           onClick={() => onChange(t.id)}
           className={cx(
             "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium",
-            value === t.id ? "border-teal-600 text-teal-700 dark:text-teal-400" : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200",
+            value === t.id ? "border-teal-600 text-teal-700 dark:text-teal-400" : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200",
           )}
         >
           {t.label}
@@ -245,7 +245,7 @@ export function Pager({ page, pageSize, total, onPage }: { page: number; pageSiz
   const pages = Math.max(1, Math.ceil(total / pageSize));
   if (total <= pageSize) return null;
   return (
-    <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
+    <div className="mt-3 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
       <span>
         {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
       </span>

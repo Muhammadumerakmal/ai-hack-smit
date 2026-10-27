@@ -113,15 +113,15 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
           <>
             <dl className="grid grid-cols-3 divide-x divide-zinc-100 rounded-xl bg-zinc-50 py-3 text-center dark:divide-zinc-800 dark:bg-zinc-900/60">
               <div className="px-2">
-                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">In</dt>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">In</dt>
                 <dd className="mt-1 text-base font-semibold tabular-nums">{fmtTime(rec?.checkIn)}</dd>
               </div>
               <div className="px-2">
-                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Out</dt>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Out</dt>
                 <dd className="mt-1 text-base font-semibold tabular-nums">{fmtTime(rec?.checkOut)}</dd>
               </div>
               <div className="px-2">
-                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Worked</dt>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Worked</dt>
                 <dd className={cx("mt-1 text-base font-semibold tabular-nums", rec && !done && "text-teal-700 dark:text-teal-300")}>{fmtDuration(worked)}</dd>
               </div>
             </dl>
@@ -155,7 +155,7 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
                     <OpsIcon name="camera" className="h-4 w-4" />
                     Check in with camera
                   </Button>
-                  <p className="text-center text-xs text-zinc-500">Your company requires a face + location check-in.</p>
+                  <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">Your company requires a face + location check-in.</p>
                 </div>
               )}
               {!rec && !cam?.required && (
@@ -183,7 +183,7 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
                 </Button>
               )}
               {!rec && cam?.available && !cam.faceEnrolled && (
-                <p className="mt-2 text-center text-xs text-zinc-500">
+                <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
                   Tip:{" "}
                   <Link href="/profile" className="font-medium text-teal-700 hover:underline dark:text-teal-300">
                     enrol your face

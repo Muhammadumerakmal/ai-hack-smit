@@ -201,7 +201,7 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
     <div>
       <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {WEEK.map((w) => (
-          <div key={w} className="pb-1 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500">
+          <div key={w} className="pb-1 text-center text-[11px] font-medium uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">
             <span className="sm:hidden">{w[0]}</span>
             <span className="hidden sm:inline">{w}</span>
           </div>
@@ -232,7 +232,7 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
                         <span className="truncate">{d.holiday ?? humanize(kind)}</span>
                       </span>
                       {d.checkIn && (
-                        <span className="hidden truncate text-[11px] tabular-nums text-zinc-500 lg:block">
+                        <span className="hidden truncate text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400 lg:block">
                           {fmtTime(d.checkIn)}
                           {d.checkOut ? `–${fmtTime(d.checkOut)}` : ""}
                         </span>
@@ -243,7 +243,7 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
               );
               const cls = cx(
                 "flex min-h-11 min-w-0 flex-col rounded-lg p-1.5 ring-1 ring-inset sm:min-h-20 sm:p-2",
-                quiet ? "text-zinc-400 ring-zinc-100 dark:text-zinc-600 dark:ring-zinc-800/60" : cx(CELL[tone], "ring-zinc-200/60 dark:ring-zinc-700/40"),
+                quiet ? "text-zinc-500 ring-zinc-100 dark:text-zinc-400 dark:ring-zinc-800/60" : cx(CELL[tone], "ring-zinc-200/60 dark:ring-zinc-700/40"),
                 kind === "weekend" && "bg-[repeating-linear-gradient(135deg,transparent,transparent_6px,rgba(113,113,122,0.06)_6px,rgba(113,113,122,0.06)_7px)]",
                 isToday && "ring-2 ring-teal-500 dark:ring-teal-400",
               );
@@ -313,7 +313,7 @@ function CorrectionForm({ day, onClose, onDone }: { day: CalendarDay | null; onC
             {weekdayShort(day.date)}, {fmtDate(day.date)}
           </span>
           <StatusPill status={day.holiday ? "holiday" : day.kind} />
-          <span className="text-zinc-500">
+          <span className="text-zinc-500 dark:text-zinc-400">
             Recorded: in {fmtTime(day.checkIn)} · out {fmtTime(day.checkOut)}
           </span>
         </div>
@@ -379,7 +379,7 @@ function CorrectionList({ items, showEmployee, actions }: { items: Correction[];
       cell: (c) => (
         <div className="space-y-1">
           <StatusPill status={c.status} />
-          {c.comment && <p className="max-w-56 text-xs text-zinc-500">“{c.comment}”</p>}
+          {c.comment && <p className="max-w-56 text-xs text-zinc-500 dark:text-zinc-400">“{c.comment}”</p>}
         </div>
       ),
     },
@@ -571,7 +571,7 @@ function CorrectionsInbox({ canDecide, myEmployeeId }: { canDecide: boolean; myE
             canDecide
               ? (c) =>
                   c.status !== "PENDING" ? null : c.employeeId === myEmployeeId ? (
-                    <span className="text-xs text-zinc-500">Your own request</span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">Your own request</span>
                   ) : (
                     <Button size="sm" variant="secondary" className="h-9 px-3" onClick={() => setReview(c)}>
                       Review
@@ -624,20 +624,20 @@ function DecisionForm({ item, onClose, onDone }: { item: Correction; onClose: ()
       {item.employee && <PersonCell name={item.employee.name} meta={`${item.employee.code} · ${item.employee.department}`} />}
       <dl className="grid grid-cols-3 gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Day</dt>
+          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Day</dt>
           <dd className="mt-0.5 font-medium">{fmtDate(item.date)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">In</dt>
+          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">In</dt>
           <dd className="mt-0.5 font-medium tabular-nums">{fmtTime(item.checkIn)}</dd>
         </div>
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Out</dt>
+          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Out</dt>
           <dd className="mt-0.5 font-medium tabular-nums">{fmtTime(item.checkOut)}</dd>
         </div>
       </dl>
       <div>
-        <p className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Reason</p>
+        <p className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Reason</p>
         <p className="mt-1 text-sm">{item.reason}</p>
       </div>
       {error && <Notice tone="error">{error}</Notice>}

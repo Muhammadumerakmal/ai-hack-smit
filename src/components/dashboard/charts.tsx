@@ -76,13 +76,13 @@ export function TrendChart({ points, label }: { points: { date: string; value: n
           {[0, 50, 100].map((v) => (
             <g key={v}>
               <line x1={pad.l} x2={width - pad.r} y1={y(v)} y2={y(v)} className={v === 0 ? "stroke-zinc-300 dark:stroke-zinc-700" : "stroke-zinc-200/80 dark:stroke-zinc-800"} strokeWidth={1} />
-              <text x={pad.l - 8} y={y(v)} dy="0.32em" textAnchor="end" className="fill-zinc-400 text-[10px] tabular-nums">
+              <text x={pad.l - 8} y={y(v)} dy="0.32em" textAnchor="end" className="fill-zinc-500 text-[11px] dark:fill-zinc-400 tabular-nums">
                 {v}%
               </text>
             </g>
           ))}
           {ticks.map((i) => (
-            <text key={i} x={x(i)} y={height - 6} textAnchor={i === 0 && n > 1 ? "start" : i === last && n > 1 ? "end" : "middle"} className="fill-zinc-400 text-[10px]">
+            <text key={i} x={x(i)} y={height - 6} textAnchor={i === 0 && n > 1 ? "start" : i === last && n > 1 ? "end" : "middle"} className="fill-zinc-500 text-[11px] dark:fill-zinc-400">
               {shortDate(points[i].date)}
             </text>
           ))}
@@ -108,7 +108,7 @@ export function TrendChart({ points, label }: { points: { date: string; value: n
           role="status"
         >
           <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-50">{a.value}%</p>
-          <p className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <p className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
             <span className="inline-block h-0.5 w-3 rounded" style={{ background: SERIES }} aria-hidden />
             {longDate(a.date)}
           </p>
@@ -152,7 +152,7 @@ export function BarChart({ items, max, format = (n) => String(n), empty }: { ite
               <span className="line-clamp-2 break-words text-[13px] leading-snug text-zinc-700 dark:text-zinc-300" title={i.label}>
                 {labelCase(i.label)}
               </span>
-              {i.note && <span className="block truncate text-[11px] text-zinc-400">{i.note}</span>}
+              {i.note && <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{i.note}</span>}
             </span>
             <span className="relative h-2.5" aria-hidden>
               {/* square at the baseline, 4px rounded data end; a zero value keeps a hairline stub */}
@@ -174,7 +174,7 @@ export function DataTable({ rows, head }: { rows: (string | number)[][]; head: s
   return (
     <div className="max-h-72 overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-left text-[13px]">
-        <thead className="sticky top-0 bg-zinc-50 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:bg-zinc-900">
+        <thead className="sticky top-0 bg-zinc-50 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:bg-zinc-900">
           <tr>
             {head.map((h, i) => (
               <th key={h} className={cx("px-3 py-2 font-medium", i > 0 && "text-right")}>
@@ -206,16 +206,16 @@ export function RankedList({ items, unit }: { items: { name: string; sub: string
     <ol className="space-y-1">
       {items.map((i, idx) => (
         <li key={`${i.name}-${idx}`} className="flex min-h-12 items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-          <span className="w-4 text-center text-xs font-semibold tabular-nums text-zinc-400">{idx + 1}</span>
+          <span className="w-4 text-center text-xs font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">{idx + 1}</span>
           <Avatar name={i.name} size="sm" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium text-zinc-900 dark:text-zinc-100">{i.name}</span>
-            <span className="block truncate text-[11px] text-zinc-500">{i.sub}</span>
+            <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">{i.sub}</span>
             <span className="mt-1 block h-1.5 rounded-r-[4px]" style={{ width: `${Math.max(6, (i.value / top) * 100)}%`, background: SERIES }} aria-hidden />
           </span>
           <span className="shrink-0 text-right">
             <span className="block text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{i.value}</span>
-            <span className="block text-[10px] text-zinc-400">{unit}</span>
+            <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">{unit}</span>
           </span>
         </li>
       ))}

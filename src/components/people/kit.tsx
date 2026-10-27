@@ -181,7 +181,7 @@ export function FormSection({ title, hint, children }: { title: string; hint?: s
       <legend className="sr-only">{title}</legend>
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{title}</p>
-        {hint && <p className="mt-1 text-xs text-zinc-500">{hint}</p>}
+        {hint && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </fieldset>
@@ -263,7 +263,7 @@ export function Panel({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
           >
             <PIcon name="x" />
           </button>
@@ -351,7 +351,7 @@ export function ActionMenu({ items, label = "Actions" }: { items: MenuItem[]; la
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
       >
         <PIcon name="dots" className="h-5 w-5" />
       </button>
@@ -389,7 +389,7 @@ export function PagerBar({ page, pageSize, total, onPage, noun = "results" }: { 
   const from = total ? (page - 1) * pageSize + 1 : 0;
   const to = Math.min(page * pageSize, total);
   return (
-    <div className="flex flex-col gap-3 border-t border-zinc-200/80 px-4 py-3 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 dark:border-zinc-800/80">
+    <div className="flex flex-col gap-3 border-t border-zinc-200/80 px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 sm:flex-row sm:items-center sm:justify-between sm:px-5 dark:border-zinc-800/80">
       <span>
         Showing <b className="font-medium text-zinc-800 dark:text-zinc-200">{from}–{to}</b> of <b className="font-medium text-zinc-800 dark:text-zinc-200">{total}</b> {noun}
       </span>

@@ -86,7 +86,7 @@ export default function AnnouncementsPage() {
                 </span>
                 <div>
                   <h2 className="text-sm font-semibold">Post an announcement</h2>
-                  <p className="text-xs text-zinc-500">Everyone gets an in-app notification.</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Everyone gets an in-app notification.</p>
                 </div>
               </div>
               <form onSubmit={post} className="space-y-4">

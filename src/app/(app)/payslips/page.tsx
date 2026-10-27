@@ -52,7 +52,7 @@ export default function PayslipsPage() {
                     <span className="min-w-0 truncate text-sm font-medium">{staff ? p.name : fmtMonth(p.month)}</span>
                     <span className="shrink-0 text-sm font-semibold tabular-nums">{money(p.net)}</span>
                   </div>
-                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                     {staff ? (
                       <>
                         {fmtMonth(p.month)} · {p.code} · {p.department} <StatusBadge status={p.status} />
@@ -77,7 +77,7 @@ export default function PayslipsPage() {
                     {staff && (
                       <>
                         <Td>
-                          {p.name} <span className="text-xs text-zinc-500">{p.code}</span>
+                          {p.name} <span className="text-xs text-zinc-500 dark:text-zinc-400">{p.code}</span>
                         </Td>
                         <Td>{p.department}</Td>
                         <Td>

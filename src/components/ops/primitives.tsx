@@ -166,7 +166,7 @@ export function Banner({
     good: "border-teal-200 bg-teal-50/70 text-teal-950 dark:border-teal-500/20 dark:bg-teal-500/5 dark:text-teal-100",
     neutral: "border-zinc-200 bg-zinc-50 text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-100",
   }[tone];
-  const iconC = { info: "text-sky-600", warn: "text-amber-600", good: "text-teal-600", neutral: "text-zinc-500" }[tone];
+  const iconC = { info: "text-sky-600", warn: "text-amber-600", good: "text-teal-600", neutral: "text-zinc-500 dark:text-zinc-400" }[tone];
   return (
     <div className={cx("flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between", c)}>
       <div className="flex min-w-0 items-start gap-3">

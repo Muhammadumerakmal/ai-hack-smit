@@ -283,12 +283,12 @@ export function CameraCheckIn({
         {submitError && <Notice tone="error">{submitError}</Notice>}
 
         {enrolling ? (
-          <p className="text-xs leading-relaxed text-zinc-500">
+          <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             The picture stays on this device. What is saved is a face descriptor: 128 numbers that describe your face, which cannot be turned back
             into a photo. It is only used to match you at camera check-in, and HR can delete it at any time.
           </p>
         ) : (
-          <p className="text-xs leading-relaxed text-zinc-500">
+          <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
             The picture stays on this device. Only the face count, the blink result{faceEnrolled ? ", a face descriptor (128 numbers, not a photo)" : ""} and your
             location are sent. The server checks that you are within {radiusMeters} m of the office and stores the distance, not a photo. If it fails, ask HR
             for an attendance correction.

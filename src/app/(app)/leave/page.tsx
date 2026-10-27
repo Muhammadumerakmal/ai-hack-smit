@@ -85,7 +85,7 @@ function MyLeave({ showHeading }: { showHeading: boolean }) {
       cell: (l) => (
         <div className="space-y-1">
           <StatusPill status={l.status} />
-          {l.comment && <p className="max-w-48 text-xs text-zinc-500">“{l.comment}”</p>}
+          {l.comment && <p className="max-w-48 text-xs text-zinc-500 dark:text-zinc-400">“{l.comment}”</p>}
         </div>
       ),
     },
@@ -134,7 +134,7 @@ function MyLeave({ showHeading }: { showHeading: boolean }) {
             title={(l) => (
               <div>
                 <p className="font-medium">{l.typeName} leave</p>
-                {l.comment && <p className="mt-0.5 text-xs text-zinc-500">HR: “{l.comment}”</p>}
+                {l.comment && <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">HR: “{l.comment}”</p>}
               </div>
             )}
             aside={(l) => <StatusPill status={l.status} />}
@@ -174,7 +174,7 @@ function BalancePanel({ balance }: { balance: ReturnType<typeof useApi<Balance>>
             <li key={b.type} className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-medium">{b.name}</span>
-                <span className="text-sm tabular-nums text-zinc-500">
+                <span className="text-sm tabular-nums text-zinc-500 dark:text-zinc-400">
                   {b.quota == null ? (
                     "No yearly limit"
                   ) : (
@@ -194,7 +194,7 @@ function BalancePanel({ balance }: { balance: ReturnType<typeof useApi<Balance>>
                       { value: Math.max(0, b.quota - b.usedApproved - b.pending), className: "" },
                     ]}
                   />
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {b.usedApproved} used{b.pending ? ` · ${b.pending} pending` : ""}
                   </p>
                 </>
@@ -230,7 +230,7 @@ function AllRequests({ canDecide, myEmployeeId }: { canDecide: boolean; myEmploy
       cell: (l) => (
         <div>
           <p className="whitespace-nowrap font-medium">{fmtRange(l.start, l.end)}</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {l.typeName} · {plural(l.days, "day")}
           </p>
         </div>
@@ -244,7 +244,7 @@ function AllRequests({ canDecide, myEmployeeId }: { canDecide: boolean; myEmploy
       cell: (l) => (
         <div className="space-y-1">
           <StatusPill status={l.status} />
-          {l.comment && <p className="max-w-44 text-xs text-zinc-500">“{l.comment}”</p>}
+          {l.comment && <p className="max-w-44 text-xs text-zinc-500 dark:text-zinc-400">“{l.comment}”</p>}
         </div>
       ),
     },
@@ -290,7 +290,7 @@ function AllRequests({ canDecide, myEmployeeId }: { canDecide: boolean; myEmploy
               canDecide
                 ? (l) =>
                     l.status !== "PENDING" ? null : l.employeeId === myEmployeeId ? (
-                      <span className="text-xs text-zinc-500">Your own request</span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">Your own request</span>
                     ) : (
                       <Button size="sm" className="h-9 px-3" onClick={() => setReview(l)}>
                         Review
@@ -345,7 +345,7 @@ function AwayPanel({ items, loading }: { items: LeaveRow[]; loading: boolean }) 
             return (
               <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
                 <PersonCell name={l.employee.name} meta={`${l.typeName} · ${fmtRange(l.start, l.end)}`} />
-                <span className="shrink-0">{now ? <StatusPill status="on_leave" label="Today" /> : <span className="text-xs text-zinc-500">{plural(l.days, "day")}</span>}</span>
+                <span className="shrink-0">{now ? <StatusPill status="on_leave" label="Today" /> : <span className="text-xs text-zinc-500 dark:text-zinc-400">{plural(l.days, "day")}</span>}</span>
               </li>
             );
           })}
@@ -380,18 +380,18 @@ function DecisionForm({ item, onClose, onDone }: { item: LeaveRow; onClose: () =
       <PersonCell name={item.employee.name} meta={`${item.employee.code} · ${item.employee.department}`} />
       <dl className="grid grid-cols-3 gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
         <div>
-          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Type</dt>
+          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Type</dt>
           <dd className="mt-0.5 font-medium">{item.typeName}</dd>
         </div>
         <div className="col-span-2">
-          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Dates</dt>
+          <dt className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Dates</dt>
           <dd className="mt-0.5 font-medium">
             {fmtRange(item.start, item.end)} · {plural(item.days, "working day")}
           </dd>
         </div>
       </dl>
       <div>
-        <p className="text-[11px] uppercase tracking-[0.06em] text-zinc-500">Reason</p>
+        <p className="text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400">Reason</p>
         <p className="mt-1 text-sm">{item.reason}</p>
       </div>
       {error && <Notice tone="error">{error}</Notice>}

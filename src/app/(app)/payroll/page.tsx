@@ -92,7 +92,7 @@ export default function PayrollPage() {
             </Button>
           )}
           {run.data && <StatusBadge status={run.data.status} />}
-          {finalized && run.data?.finalizedAt && <span className="text-xs text-zinc-500">Locked on {fmtDateTime(run.data.finalizedAt)}</span>}
+          {finalized && run.data?.finalizedAt && <span className="text-xs text-zinc-500 dark:text-zinc-400">Locked on {fmtDateTime(run.data.finalizedAt)}</span>}
         </div>
         {message && (
           <div className="mt-3">
@@ -121,21 +121,21 @@ export default function PayrollPage() {
                       <span className="min-w-0 truncate text-sm font-medium">{p.name}</span>
                       <span className="shrink-0 text-sm font-semibold tabular-nums">{money(p.net)}</span>
                     </div>
-                    <p className="mt-0.5 text-xs text-zinc-500">
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                       {p.code} · {p.department} · {p.paidDays} / {p.workingDays} days paid
                     </p>
                     {p.latePenaltyDays > 0 && <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-300">incl. {p.latePenaltyDays} day late penalty ({p.lateDays} late days)</p>}
                     <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
                       <div>
-                        <dt className="text-zinc-500">Gross</dt>
+                        <dt className="text-zinc-500 dark:text-zinc-400">Gross</dt>
                         <dd className="tabular-nums">{money(p.gross)}</dd>
                       </div>
                       <div>
-                        <dt className="text-zinc-500">Deductions</dt>
+                        <dt className="text-zinc-500 dark:text-zinc-400">Deductions</dt>
                         <dd className="tabular-nums">{money(p.deductions)}</dd>
                       </div>
                       <div>
-                        <dt className="text-zinc-500">Tax</dt>
+                        <dt className="text-zinc-500 dark:text-zinc-400">Tax</dt>
                         <dd className="tabular-nums">{money(p.tax)}</dd>
                       </div>
                     </dl>
@@ -203,7 +203,7 @@ export default function PayrollPage() {
                   >
                     <span className="min-w-0">
                       <span className="block text-sm font-medium">{fmtMonth(r.month)}</span>
-                      <span className="block text-xs text-zinc-500">
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                         {r.employees} employees · net {money(r.totalNet)}
                       </span>
                     </span>

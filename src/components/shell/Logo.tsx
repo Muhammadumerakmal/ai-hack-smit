@@ -16,7 +16,7 @@ export function Wordmark({ sub, tone = "default" }: { sub?: string; tone?: "defa
       <LogoMark />
       <div className="min-w-0 leading-tight">
         <p className={`truncate text-sm font-semibold tracking-tight ${tone === "light" ? "text-white" : ""}`}>HCM Lite</p>
-        {sub && <p className={`truncate text-[11px] ${tone === "light" ? "text-zinc-400" : "text-zinc-500"}`}>{sub}</p>}
+        {sub && <p className={`truncate text-[11px] ${tone === "light" ? "text-zinc-400" : "text-zinc-500 dark:text-zinc-400"}`}>{sub}</p>}
       </div>
     </div>
   );
