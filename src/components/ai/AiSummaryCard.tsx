@@ -29,7 +29,7 @@ export function AiSummaryCard({ filters }: { filters: DashboardFilters }) {
   }
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-violet-200/70 bg-gradient-to-br from-violet-50/80 via-white to-indigo-50/60 p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-5 dark:border-violet-900/50 dark:from-violet-950/40 dark:via-zinc-900/50 dark:to-indigo-950/30">
+    <section className="relative overflow-hidden rounded-2xl glass bg-gradient-to-br from-violet-200/45 via-transparent to-indigo-200/35 p-4 sm:p-5 dark:from-violet-500/15 dark:to-indigo-500/10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-sm shadow-violet-900/20" aria-hidden>

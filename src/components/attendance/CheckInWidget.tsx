@@ -71,7 +71,7 @@ export function CheckInWidget({ onChange }: { onChange?: () => void }) {
   return (
     <section
       aria-label="Today's attendance"
-      className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50"
+      className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl glass"
     >
       {/* Clock face */}
       <div className="relative overflow-hidden bg-gradient-to-br from-teal-700 via-teal-800 to-zinc-900 px-5 pb-5 pt-4 text-white">

@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <MeContext.Provider value={me}>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen">
         {/* Keyboard users jump past the menu; hidden until it receives focus. */}
         <a
           href="#main"
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <aside
           id="app-sidebar"
           // Closed on a phone: off screen *and* invisible, so Tab and screen readers skip it (visibility waits for the slide).
-          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col border-r border-zinc-200/80 bg-white transition-[transform,visibility] duration-300 dark:border-zinc-800/80 dark:bg-zinc-950 lg:visible lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col glass-strong rounded-none border-y-0 border-l-0 transition-[transform,visibility] duration-300 lg:glass lg:rounded-none lg:border-y-0 lg:border-l-0 lg:visible lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
             menuOpen ? "visible translate-x-0" : "invisible -translate-x-full"
           }`}
         >
@@ -164,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {menuOpen && <div className="fixed inset-0 z-20 bg-zinc-950/40 backdrop-blur-[2px] lg:hidden" onClick={() => setMenuOpen(false)} />}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b border-zinc-200/80 bg-white/80 px-4 backdrop-blur-md sm:px-6 dark:border-zinc-800/80 dark:bg-zinc-950/80">
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b border-white/60 bg-white/55 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 dark:border-white/5 dark:bg-zinc-950/45">
             <button className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-300 dark:hover:bg-zinc-900" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-expanded={menuOpen} aria-controls="app-sidebar">
               <Icon name="menu" className="h-5 w-5" />
             </button>
@@ -245,7 +245,7 @@ function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl glass-strong">
           <p className="border-b border-zinc-200 px-3 py-2 text-xs font-semibold dark:border-zinc-800">Notifications</p>
           {readError && <p role="alert" className="border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">{readError}</p>}
           <ul className="max-h-80 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-900">

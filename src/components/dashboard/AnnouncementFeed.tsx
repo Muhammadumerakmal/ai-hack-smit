@@ -15,7 +15,7 @@ export function AnnouncementFeed({ items, compact }: { items: Announcement[]; co
   return (
     <ol className={cx("relative", compact ? "space-y-4" : "space-y-3")}>
       {items.map((a) => (
-        <li key={a.id} className={cx("flex gap-3", !compact && "rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-5 dark:border-zinc-800/80 dark:bg-zinc-900/50")}>
+        <li key={a.id} className={cx("flex gap-3", !compact && "rounded-2xl glass p-4 sm:p-5")}>
           <Avatar name={a.authorName || "?"} />
           <article className="min-w-0 flex-1">
             <header className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">

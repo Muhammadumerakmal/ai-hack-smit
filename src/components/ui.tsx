@@ -22,7 +22,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 
 export function Card({ title, actions, children, className }: { title?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cx("rounded-2xl p-5 border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none", className)}>
+    <section className={cx("rounded-2xl glass p-5", className)}>
       {(title || actions) && (
         <div className="mb-4 flex items-center justify-between gap-2">
           {title && <h2 className="text-sm font-semibold tracking-tight">{title}</h2>}
@@ -37,7 +37,7 @@ export function Card({ title, actions, children, className }: { title?: string; 
 export function Stat({ label, value, hint, tone = "default" }: { label: string; value: ReactNode; hint?: string; tone?: "default" | "good" | "warn" | "bad" }) {
   const color = { default: "text-zinc-900 dark:text-zinc-50", good: "text-teal-600 dark:text-teal-400", warn: "text-amber-600 dark:text-amber-400", bad: "text-red-600 dark:text-red-400" }[tone];
   return (
-    <div className="rounded-2xl p-4 border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none">
+    <div className="rounded-2xl glass p-4">
       <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className={cx("mt-2 text-[1.75rem] font-semibold leading-none tracking-tight tabular-nums", color)}>{value}</p>
       {hint && <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
@@ -49,7 +49,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "
 
 export function Button({ variant = "primary", size = "md", loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
-    primary: "bg-teal-600 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-700 active:bg-teal-800",
+    primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
     secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
@@ -255,7 +255,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-2xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/50 backdrop:backdrop-blur-[2px] dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-2xl glass-strong p-0 text-zinc-900 backdrop:bg-zinc-950/40 backdrop:backdrop-blur-sm dark:text-zinc-100"
     >
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{title}</h2>

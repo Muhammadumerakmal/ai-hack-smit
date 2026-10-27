@@ -11,7 +11,7 @@ import { OpsIcon, type OpsIconName } from "./icons";
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 const SURFACE =
-  "rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none";
+  "rounded-2xl glass";
 
 // ---------- Status palette (one mapping for every status on these screens) ----------
 
@@ -318,7 +318,7 @@ export function SegmentedTabs<T extends string>({ tabs, value, onChange }: { tab
                 <span
                   className={cx(
                     "min-w-5 rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                    active ? "bg-teal-600 text-white dark:bg-teal-500 dark:text-zinc-950" : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
+                    active ? "bg-teal-700 text-white dark:bg-teal-500 dark:text-zinc-950" : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
                   )}
                 >
                   {t.count}
@@ -340,7 +340,7 @@ export function ButtonLink({ href, children, variant = "secondary", className }:
       className={cx(
         "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/60 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-950",
         variant === "primary"
-          ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700"
+          ? "bg-teal-700 text-white shadow-sm hover:bg-teal-800"
           : "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
         className,
       )}

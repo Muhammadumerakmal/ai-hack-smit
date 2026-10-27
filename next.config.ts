@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -32,6 +33,9 @@ const nextConfig: NextConfig = {
     return ["chat", "summary", "smart-leave"].map((p) => ({ source: `/ai/${p}`, destination: `/api/ai/${p}` }));
   },
   turbopack: {
+    // This folder is the app root. Without it, a stray package-lock.json higher up (e.g. in the home folder)
+    // makes Next.js guess the wrong root and print a warning on every start.
+    root: path.resolve(__dirname),
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

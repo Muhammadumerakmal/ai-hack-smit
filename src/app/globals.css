@@ -8,6 +8,23 @@
   --brand: #0d9488;
   --brand-strong: #0f766e;
   --ai: #7c3aed;
+
+  /* Glassmorphism (ui-ux-pro-max "Glassmorphism" style): translucent panels over a soft colour field.
+     Panels stay mostly opaque so secondary text keeps a 4.5:1 contrast on top of them. */
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-bg-strong: rgb(255 255 255 / 0.86);
+  --glass-border: rgb(255 255 255 / 0.75);
+  --glass-edge: rgb(15 23 42 / 0.07);
+  --glass-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 10px 30px -14px rgb(16 24 40 / 0.18);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.8);
+  --glass-blur: 16px;
+  --field-1: rgb(45 212 191 / 0.5);
+  --field-2: rgb(167 139 250 / 0.45);
+  --field-3: rgb(56 189 248 / 0.38);
+  --field-4: rgb(94 234 212 / 0.3);
+  /* Secondary text sits on tinted glass, which costs a little contrast; a slightly deeper zinc-500 keeps it
+     at 4.5:1 or better there (measured). Unlayered on purpose: it overrides Tailwind's layered theme value. */
+  --color-zinc-500: oklch(0.5 0.016 285.938);
   color-scheme: light;
 }
 
@@ -19,6 +36,18 @@
     --brand: #2dd4bf;
     --brand-strong: #14b8a6;
     --ai: #a78bfa;
+
+    --glass-bg: rgb(24 24 27 / 0.58);
+    --glass-bg-strong: rgb(20 20 23 / 0.82);
+    --glass-border: rgb(255 255 255 / 0.08);
+    --glass-edge: rgb(0 0 0 / 0.35);
+    --glass-shadow: 0 10px 30px -14px rgb(0 0 0 / 0.7);
+    --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 0.06);
+    --field-1: rgb(45 212 191 / 0.22);
+    --field-2: rgb(139 92 246 / 0.24);
+    --field-3: rgb(14 165 233 / 0.16);
+    --field-4: rgb(20 184 166 / 0.12);
+    --color-zinc-500: oklch(0.552 0.016 285.938); /* dark mode keeps Tailwind's zinc-500 */
     color-scheme: dark;
   }
 }
@@ -54,12 +83,54 @@
   }
 }
 
+/* A glass panel. Cards only ever sit on the smooth colour field, where a blur changes nothing visible but costs
+   a GPU pass per card, so plain glass is translucent without backdrop-filter. glass-strong (overlays: menus,
+   dialogs, the chat) and the sticky header/filter bar do blur, because content scrolls underneath them. */
+@utility glass {
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+}
+@utility glass-strong {
+  background-color: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(160%);
+  backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(160%);
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* The colour field behind the glass. Fixed and painted once, so scrolling never repaints it. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(48rem 36rem at 4% -6%, var(--field-1), transparent 68%),
+    radial-gradient(44rem 34rem at 100% 0%, var(--field-2), transparent 68%),
+    radial-gradient(52rem 38rem at 60% 110%, var(--field-3), transparent 68%),
+    radial-gradient(34rem 28rem at 30% 60%, var(--field-4), transparent 70%),
+    var(--background);
+}
+
+/* Tailwind 4 resets buttons to the default cursor; clickable things should show a pointer. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-sans);
   font-feature-settings: "cv11", "ss01";
@@ -71,15 +142,28 @@ body {
   background: color-mix(in oklab, var(--brand) 25%, transparent);
 }
 
-:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
+/* In the base layer so a component's own focus style (focus-visible:outline-none + ring) can replace it.
+   Unlayered CSS beats every Tailwind utility, which made those overrides silently do nothing. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
 }
 
 /* Numbers line up in tables and KPI tiles. */
 .tabular-nums,
 table {
   font-variant-numeric: tabular-nums;
+}
+
+/* People who ask the OS for less transparency get solid panels and no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: var(--surface);
+    --glass-bg-strong: var(--surface);
+    --glass-blur: 0px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

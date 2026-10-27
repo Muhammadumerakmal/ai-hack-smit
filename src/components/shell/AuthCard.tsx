@@ -18,7 +18,7 @@ const FACTS = [
 /** Entry screens (setup, sign in, change password): cinematic scene on the left, the form on the right. */
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <main className="grid min-h-screen bg-background lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <main className="grid min-h-screen lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       {/* Story panel */}
       <section className="relative isolate overflow-hidden bg-[#0b0d10] text-white lg:min-h-screen" aria-label="About HCM Lite">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_30%_20%,rgba(20,184,166,0.16),transparent_55%),radial-gradient(ellipse_at_80%_90%,rgba(124,58,237,0.10),transparent_50%)]" />
@@ -66,7 +66,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
 
       {/* Form panel */}
       <section className="flex items-start justify-center px-4 py-10 sm:px-8 lg:items-center lg:py-12">
-        <div className="w-full max-w-[400px] animate-rise [animation-delay:200ms]">
+        <div className="glass w-full max-w-[440px] animate-rise rounded-3xl p-6 [animation-delay:200ms] sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{subtitle}</p>}
           <div className="mt-7">{children}</div>

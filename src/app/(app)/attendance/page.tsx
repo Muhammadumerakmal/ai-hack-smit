@@ -220,7 +220,7 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
               const body = (
                 <>
                   <span className="flex items-center justify-between">
-                    <span className={cx("text-xs font-semibold tabular-nums sm:text-sm", isToday && "flex h-5 w-5 items-center justify-center rounded-full bg-teal-600 text-white sm:h-6 sm:w-6")}>
+                    <span className={cx("text-xs font-semibold tabular-nums sm:text-sm", isToday && "flex h-5 w-5 items-center justify-center rounded-full bg-teal-700 text-white sm:h-6 sm:w-6")}>
                       {Number(d.date.slice(8))}
                     </span>
                     {!quiet && <span className={cx("h-1.5 w-1.5 rounded-full sm:hidden", DOT[tone])} aria-hidden />}

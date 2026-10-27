@@ -65,7 +65,7 @@ export function FilterBar({
   }
 
   return (
-    <div className="sticky top-16 z-[5] -mx-4 mb-6 border-b border-zinc-200/80 bg-background/90 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 dark:border-zinc-800/80">
+    <div className="sticky top-16 z-[5] -mx-4 mb-6 border-b border-white/60 bg-white/55 px-4 py-3 backdrop-blur-xl backdrop-saturate-150 sm:-mx-6 sm:px-6 dark:border-white/5 dark:bg-zinc-950/45">
       {/* Phone summary row */}
       <div className="flex items-center justify-between gap-3 md:hidden">
         <div className="min-w-0">
@@ -130,7 +130,7 @@ export function FilterBar({
           <button
             type="submit"
             disabled={!dirty || busy}
-            className="col-span-2 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-1"
+            className="col-span-2 inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-teal-700 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 md:col-span-1"
           >
             {busy && <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
             Apply

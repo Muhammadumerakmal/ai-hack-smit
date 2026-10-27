@@ -123,7 +123,7 @@ export function ToolButton({
   title?: string;
 }) {
   const styles = {
-    primary: "bg-teal-600 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-700 active:bg-teal-800",
+    primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
     secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
     danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40",
@@ -149,7 +149,7 @@ export function ToolButton({
 
 export function Surface({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <section className={cx("rounded-2xl border border-zinc-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)] dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:shadow-none", className)}>
+    <section className={cx("rounded-2xl glass", className)}>
       {children}
     </section>
   );
@@ -356,7 +356,7 @@ export function ActionMenu({ items, label = "Actions" }: { items: MenuItem[]; la
         <PIcon name="dots" className="h-5 w-5" />
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+        <div role="menu" className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl glass-strong py-1">
           {items.map((it) => (
             <button
               key={it.label}

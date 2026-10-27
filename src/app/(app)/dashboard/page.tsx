@@ -298,7 +298,7 @@ function CompanyView() {
 function RateTile({ label, value, tone }: { label: string; value: number | null; tone: "good" | "warn" | "bad" }) {
   const bar = { good: "bg-teal-600", warn: "bg-amber-500", bad: "bg-red-500" }[tone];
   return (
-    <div className="min-w-0 rounded-2xl border border-zinc-200/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-4 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+    <div className="min-w-0 rounded-2xl glass p-3 sm:p-4">
       <p className="text-[11px] font-medium leading-tight text-zinc-500 sm:text-xs dark:text-zinc-400">{label}</p>
       <p className="mt-1.5 text-xl font-semibold tracking-tight sm:text-2xl">{pctText(value)}</p>
       <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" aria-hidden>

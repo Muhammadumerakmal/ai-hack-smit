@@ -123,7 +123,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
       role="dialog"
       aria-label="AI assistant"
       onKeyDown={(e) => e.key === "Escape" && close()}
-      className="fixed inset-x-2 bottom-2 top-16 z-40 flex animate-rise flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-zinc-950/20 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:top-auto sm:h-[min(620px,calc(100vh-6rem))] sm:w-[400px] dark:border-zinc-800 dark:bg-zinc-950"
+      className="fixed inset-x-2 bottom-2 top-16 z-40 flex animate-rise flex-col overflow-hidden rounded-2xl glass-strong shadow-2xl shadow-zinc-950/20 sm:inset-x-auto sm:right-4 sm:bottom-4 sm:top-auto sm:h-[min(620px,calc(100vh-6rem))] sm:w-[400px]"
     >
       <header className="relative flex items-center gap-3 overflow-hidden bg-gradient-to-br from-violet-600 via-violet-600 to-indigo-600 px-4 py-3.5 text-white">
         <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
@@ -157,7 +157,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-zinc-50/70 px-4 py-4 text-sm dark:bg-zinc-950">
+      <div className="flex-1 overflow-y-auto px-4 py-4 text-sm">
         <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {announcement}
         </p>
@@ -178,7 +178,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  className="group flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-left text-zinc-700 shadow-sm shadow-zinc-900/5 transition hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-violet-800 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
+                  className="group flex w-full items-center justify-between gap-3 rounded-xl border border-white/70 bg-white/60 px-3.5 py-2.5 text-left text-zinc-700 shadow-sm shadow-zinc-900/5 transition hover:border-violet-300 hover:bg-violet-50/80 hover:text-violet-900 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:border-violet-800 dark:hover:bg-violet-950/40 dark:hover:text-violet-200"
                 >
                   <span>{s}</span>
                   <span aria-hidden className="text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-violet-500 dark:text-zinc-600">→</span>
@@ -204,7 +204,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
                     className={`break-words rounded-2xl rounded-tl-md px-3.5 py-2.5 leading-relaxed ${
                       m.error
                         ? "border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/60 dark:text-amber-200"
-                        : "border border-zinc-200/80 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                        : "glass text-zinc-800 dark:text-zinc-100"
                     }`}
                   >
                     {m.error ? <p>{m.content}</p> : <RichText text={m.content} />}
@@ -225,7 +225,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
           {loading && (
             <div className="flex items-start gap-2" aria-hidden>
               <AssistantAvatar />
-              <div className="flex items-center gap-2.5 rounded-2xl rounded-tl-md border border-zinc-200/80 bg-white px-3.5 py-3 text-xs text-zinc-500 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <div className="flex items-center gap-2.5 rounded-2xl glass rounded-tl-md px-3.5 py-3 text-xs text-zinc-500 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                 <span className="flex gap-1" aria-hidden>
                   {[0, 150, 300].map((d) => (
                     <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-500" style={{ animationDelay: `${d}ms` }} />
@@ -244,7 +244,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
           e.preventDefault();
           send(input);
         }}
-        className="border-t border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+        className="border-t border-white/60 bg-white/40 p-3 dark:border-white/5 dark:bg-zinc-950/30"
       >
         <div className="flex items-end gap-2 rounded-xl border border-zinc-300 bg-white py-1.5 pl-3 pr-1.5 shadow-sm shadow-zinc-900/5 transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/15 dark:border-zinc-700 dark:bg-zinc-900">
           <textarea

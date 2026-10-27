@@ -46,9 +46,11 @@ export default function LoginPage() {
         <Button type="submit" loading={busy} className="w-full">
           Sign in
         </Button>
-        <div className="relative py-1 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="absolute inset-x-0 top-1/2 h-px bg-zinc-200 dark:bg-zinc-800" aria-hidden />
-          <span className="relative bg-background px-2">New here?</span>
+        {/* Lines on each side instead of a background patch, so the divider works on glass. */}
+        <div className="flex items-center gap-3 py-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="h-px flex-1 bg-zinc-300/70 dark:bg-zinc-700/70" aria-hidden />
+          New here?
+          <span className="h-px flex-1 bg-zinc-300/70 dark:bg-zinc-700/70" aria-hidden />
         </div>
         <Link
           href="/setup"

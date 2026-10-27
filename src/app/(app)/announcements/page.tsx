@@ -63,7 +63,7 @@ export default function AnnouncementsPage() {
           {loading && !data && (
             <div className="space-y-3" role="status" aria-label="Loading announcements">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex gap-3 rounded-2xl border border-zinc-200/80 bg-white p-5 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+                <div key={i} className="flex gap-3 rounded-2xl glass p-5">
                   <Skeleton className="h-9 w-9 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-3 w-32" />
@@ -82,7 +82,7 @@ export default function AnnouncementsPage() {
 
         {canPost && (
           <aside className={cx("order-1 lg:order-2 lg:block", composerOpen ? "block" : "hidden")}>
-            <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] lg:sticky lg:top-24 dark:border-zinc-800/80 dark:bg-zinc-900/50">
+            <div className="rounded-2xl glass p-5 lg:sticky lg:top-24">
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
                   <DIcon name="megaphone" />
