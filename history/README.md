@@ -42,3 +42,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [10 Multi-company](2026-10-27-01-multi-company.md) | 2026-10-27 | "Create your company" for every visitor, fail-closed company scoping, rehearsed Neon migration |
 | [11 Accessibility pass](2026-10-27-02-ui-ux-pro-max-a11y.md) | 2026-10-27 | ui-ux-pro-max skill installed; text contrast fixed in light and dark mode |
 | [12 Forms, keyboard, chat a11y](2026-10-27-03-forms-nav-chat-a11y.md) | 2026-10-27 | Errors under each field, required markers, skip link, keyboard-safe phone menu, one chat live region |
+| [13 Responsive breakpoints](2026-10-27-04-responsive-breakpoints.md) | 2026-10-27 | Side-by-side layouts move from `lg` to `xl` (sidebar width), filter bar fix, wrapping tab strips, no truncated KPI values |

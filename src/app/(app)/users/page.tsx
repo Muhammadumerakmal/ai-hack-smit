@@ -150,7 +150,7 @@ export default function UsersPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Tile label="Total logins" value={counts.all} icon="users" />
         <Tile label="HR" value={counts.HR} icon="shield" />
         <Tile label="Awaiting first sign-in" value={counts.pending} icon="key" tone={counts.pending ? "warn" : "default"} />
@@ -164,8 +164,8 @@ export default function UsersPage() {
       )}
 
       <Surface className="overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-zinc-200/80 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between dark:border-zinc-800/80">
-          <div role="tablist" aria-label="Filter logins" className="flex gap-1 overflow-x-auto rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
+        <div className="flex flex-col gap-3 border-b border-zinc-200/80 p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between dark:border-zinc-800/80">
+          <div role="tablist" aria-label="Filter logins" className="flex flex-wrap gap-1 self-start rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
             {filters.map((f) => (
               <button
                 key={f.id}
@@ -182,7 +182,7 @@ export default function UsersPage() {
               </button>
             ))}
           </div>
-          <div className="lg:w-80">
+          <div className="xl:w-80">
             <SearchInput value={search} onChange={setSearch} placeholder="Search name, email or code" label="Search logins" />
           </div>
         </div>
@@ -319,7 +319,7 @@ function Tile({ label, value, icon, tone = "default" }: { label: string; value: 
         <PIcon name={icon} className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
+        <p className="text-xs leading-snug text-zinc-500 dark:text-zinc-400">{label}</p>
         <p className={cx("text-xl font-semibold tabular-nums", c)}>{value}</p>
       </div>
     </Surface>

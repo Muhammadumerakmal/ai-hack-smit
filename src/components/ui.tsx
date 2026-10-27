@@ -271,7 +271,8 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (id: T) => void }) {
   return (
-    <div role="tablist" className="mb-4 flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
+    // Wraps instead of scrolling: on a phone a sideways-scrolling strip hid the last tabs with no hint they existed.
+    <div role="tablist" className="mb-4 flex flex-wrap gap-x-1 border-b border-zinc-200 dark:border-zinc-800">
       {tabs.map((t) => (
         <button
           key={t.id}
