@@ -102,7 +102,7 @@ function MyAttendance() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <CheckInWidget onChange={cal.reload} />
 
         <Panel

@@ -104,3 +104,23 @@ describe("chat request validation", () => {
     expect(chatRequestSchema.safeParse({ conversationId, message: "  " }).success).toBe(false);
   });
 });
+
+describe("validation errors per field (forms show each under its input)", () => {
+  it("maps zod issues to one plain message per field, and a readable summary", async () => {
+    const { z } = await import("zod");
+    const { errorResponse, fieldErrors } = await import("@/lib/api");
+    const { passwordSchema } = await import("@/lib/password");
+    const schema = z.object({ companyName: z.string().min(2), adminEmail: z.email(), adminPassword: passwordSchema, note: z.string() });
+    const err = schema.safeParse({ companyName: "x", adminEmail: "bad", adminPassword: "lettersonly" }).error!;
+    expect(fieldErrors(err)).toEqual({
+      companyName: "Use at least 2 characters.",
+      adminEmail: "Enter a valid email address.",
+      adminPassword: "Password needs a number",
+      note: "This field is required.",
+    });
+    const body = await errorResponse(err).json();
+    expect(body.message).toBe(
+      "Company name: Use at least 2 characters. Admin email: Enter a valid email address. Admin password: Password needs a number. Note: This field is required.",
+    );
+  });
+});

@@ -147,8 +147,8 @@ export function DashboardSkeleton({ tiles = 5 }: { tiles?: number }) {
           </div>
         ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className={cx(SURFACE, "space-y-3 p-5 lg:col-span-2")}>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className={cx(SURFACE, "space-y-3 p-5 xl:col-span-2")}>
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-48 w-full" />
         </div>

@@ -108,7 +108,8 @@ export function FilterBar({
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3 md:flex md:flex-1 md:flex-wrap md:items-end">
+        {/* min-w-fit: when the dates and department don't fit beside the presets, the whole group drops to its own line */}
+        <div className="grid grid-cols-2 gap-3 md:flex md:min-w-fit md:flex-1 md:flex-wrap md:items-end">
           <label className="block space-y-1 md:w-40">
             <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">From</span>
             <input type="date" className={control} value={draft.start} max={draft.end} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />

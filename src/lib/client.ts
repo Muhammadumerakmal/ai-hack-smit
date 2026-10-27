@@ -10,10 +10,15 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
+    /** Validation problems per field (400 responses), for <FieldErrors>. */
+    public fields: Record<string, string> = {},
   ) {
     super(message);
   }
 }
+
+/** The per-field errors of a failed request, or none. */
+export const fieldErrorsOf = (err: unknown): Record<string, string> => (err instanceof ApiError ? err.fields : {});
 
 export async function api<T = unknown>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   let res: Response;
@@ -37,7 +42,7 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/change-password";
   }
-  if (!res.ok) throw new ApiError(res.status, json?.message ?? `Request failed (${res.status})`, json?.error);
+  if (!res.ok) throw new ApiError(res.status, json?.message ?? `Request failed (${res.status})`, json?.error, json?.fields ?? {});
   return json as T;
 }
 

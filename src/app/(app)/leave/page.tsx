@@ -251,9 +251,9 @@ function AllRequests({ canDecide, myEmployeeId }: { canDecide: boolean; myEmploy
   ];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
+    <div className="grid gap-4 xl:grid-cols-3">
       <Panel
-        className="lg:col-span-2"
+        className="xl:col-span-2"
         icon="inbox"
         title={canDecide ? "Approval inbox" : "All leave requests"}
         subtitle={canDecide ? "Approving deducts the days from the employee's balance. Rejecting needs a comment." : "Only HR can approve or reject leave."}

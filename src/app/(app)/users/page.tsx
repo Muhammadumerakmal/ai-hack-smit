@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ActionMenu, Avatar, PIcon, Panel, RowsSkeleton, SearchInput, SecretReveal, Surface, ToolButton, cx, type MenuItem } from "@/components/people/kit";
-import { Button, EmptyState, ErrorState, Field, Input, Notice, PageHeader, StatusBadge } from "@/components/ui";
-import { api, fmtDate, useApi } from "@/lib/client";
+import { Button, EmptyState, ErrorState, Field, FieldErrors, Input, Notice, PageHeader, StatusBadge } from "@/components/ui";
+import { api, fieldErrorsOf, fmtDate, useApi } from "@/lib/client";
 
 interface UserRow {
   id: string;
@@ -329,16 +329,19 @@ function Tile({ label, value, icon, tone = "default" }: { label: string; value: 
 function CreateHr({ onClose, onCreated }: { onClose: () => void; onCreated: (r: { email: string; tempPassword: string }) => void }) {
   const [f, setF] = useState({ name: "", email: "" });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setFieldErrs({});
     try {
       onCreated(await api<{ email: string; tempPassword: string }>("/api/users", { body: f }));
     } catch (err) {
       setError((err as Error).message);
+      setFieldErrs(fieldErrorsOf(err));
       setBusy(false);
     }
   }
@@ -361,15 +364,17 @@ function CreateHr({ onClose, onCreated }: { onClose: () => void; onCreated: (r: 
         </>
       }
     >
+      <FieldErrors errors={fieldErrs}>
       <form id="create-hr" onSubmit={submit} className="space-y-4">
         {error && <Notice tone="error">{error}</Notice>}
-        <Field label="Full name">
+        <Field name="name" label="Full name">
           <Input required minLength={2} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="off" />
         </Field>
-        <Field label="Work email" hint="They sign in with this email.">
+        <Field name="email" label="Work email" hint="They sign in with this email.">
           <Input required type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="off" />
         </Field>
       </form>
+      </FieldErrors>
     </Panel>
   );
 }

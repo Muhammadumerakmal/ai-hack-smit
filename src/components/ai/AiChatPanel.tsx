@@ -36,6 +36,8 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  // One live region for screen readers: the status, then the answer (never the user's own question again).
+  const [announcement, setAnnouncement] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -76,6 +78,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
     setMessages((m) => [...m, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
+    setAnnouncement("Checking the records…");
 
     // Only the new question goes to the server; earlier turns live in its history.
     const res = await postAi<{ answer: string; conversationId: string }>(
@@ -88,6 +91,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
       ...m,
       res.ok ? { role: "assistant", content: res.data.answer, ai: true } : { role: "assistant", content: res.message, error: true, retry: question },
     ]);
+    setAnnouncement(res.ok ? `Assistant: ${res.data.answer.replace(/\*\*/g, "")}` : `Assistant could not answer: ${res.message}`);
     setLoading(false);
   }
 
@@ -153,7 +157,10 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto bg-zinc-50/70 px-4 py-4 text-sm dark:bg-zinc-950" aria-live="polite">
+      <div className="flex-1 overflow-y-auto bg-zinc-50/70 px-4 py-4 text-sm dark:bg-zinc-950">
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </p>
         {messages.length === 0 && (
           <div className="flex h-full flex-col">
             <div className="flex flex-col items-center px-2 pb-5 pt-4 text-center">
@@ -216,7 +223,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
           )}
 
           {loading && (
-            <div className="flex items-start gap-2" role="status">
+            <div className="flex items-start gap-2" aria-hidden>
               <AssistantAvatar />
               <div className="flex items-center gap-2.5 rounded-2xl rounded-tl-md border border-zinc-200/80 bg-white px-3.5 py-3 text-xs text-zinc-500 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                 <span className="flex gap-1" aria-hidden>

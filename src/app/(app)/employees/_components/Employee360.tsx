@@ -143,8 +143,8 @@ function Overview({ data, mode, onChanged }: { data: Employee360Data; mode: "hr"
   const p = data.profile;
   const a = data.attendance;
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Surface className="p-5 lg:col-span-2">
+    <div className="grid gap-6 xl:grid-cols-3">
+      <Surface className="p-5 xl:col-span-2">
         <SectionHeading title="Employment details" icon="briefcase" />
         <dl className="mt-5 grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
           <Item k="Employee code" v={p.code} mono />
@@ -160,7 +160,7 @@ function Overview({ data, mode, onChanged }: { data: Employee360Data; mode: "hr"
 
       <SalaryCard salary={data.salary} />
 
-      <Surface className="p-5 lg:col-span-2">
+      <Surface className="p-5 xl:col-span-2">
         <SectionHeading title="This month at a glance" hint="Working days so far this month." icon="clock" />
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MiniStat label="Attendance" value={a.attendanceRatePct == null ? "—" : `${a.attendanceRatePct}%`} tone="good" />
@@ -216,7 +216,7 @@ function FaceCard({
 
   const who = mode === "self" ? "your" : `${name.split(" ")[0]}'s`;
   return (
-    <Surface className="p-5 lg:col-span-3">
+    <Surface className="p-5 xl:col-span-3">
       <SectionHeading
         title="Face check-in"
         icon="shield"
@@ -297,12 +297,12 @@ function AttendanceTab({ data }: { data: Employee360Data }) {
 
 function LeaveTab({ data }: { data: Employee360Data }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-6 xl:grid-cols-3">
       <Surface className="p-5">
         <SectionHeading title="Balance this year" hint="Approved leave is deducted; pending is shown separately." icon="leaf" />
         <LeaveMeters balances={data.leaveBalance} />
       </Surface>
-      <Surface className="overflow-hidden lg:col-span-2">
+      <Surface className="overflow-hidden xl:col-span-2">
         <div className="p-5 pb-4">
           <SectionHeading title="Recent leave requests" icon="calendar" />
         </div>
@@ -336,9 +336,9 @@ function LeaveTab({ data }: { data: Employee360Data }) {
 
 function PayrollTab({ data }: { data: Employee360Data }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid gap-6 xl:grid-cols-3">
       <SalaryCard salary={data.salary} />
-      <Surface className="overflow-hidden lg:col-span-2">
+      <Surface className="overflow-hidden xl:col-span-2">
         <div className="p-5 pb-4">
           <SectionHeading title="Payslips" icon="file" />
         </div>
@@ -469,8 +469,8 @@ function ProfileSkeleton() {
           </div>
         </div>
       </Surface>
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Skeleton className="h-56 rounded-2xl lg:col-span-2" />
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Skeleton className="h-56 rounded-2xl xl:col-span-2" />
         <Skeleton className="h-56 rounded-2xl" />
       </div>
     </div>

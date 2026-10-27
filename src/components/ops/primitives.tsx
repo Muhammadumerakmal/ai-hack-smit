@@ -137,12 +137,13 @@ export function KpiTile({
   }[tone];
   return (
     <div className={cx(SURFACE, "min-w-0 p-4")}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-[11px] font-medium uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</p>
+      {/* Label, value and hint wrap rather than truncate: a cut-off number ("94.…") is worse than a second line. */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-medium uppercase leading-snug tracking-[0.08em] text-zinc-500 dark:text-zinc-400">{label}</p>
         {icon && <OpsIcon name={icon} className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-500" />}
       </div>
-      <p className={cx("mt-2 truncate text-2xl font-semibold leading-tight tracking-tight tabular-nums", color)}>{value}</p>
-      {hint && <p className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
+      <p className={cx("mt-2 text-2xl font-semibold leading-tight tracking-tight tabular-nums", color)}>{value}</p>
+      {hint && <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
     </div>
   );
 }
@@ -291,11 +292,11 @@ export function MonthSwitcher({ value, onChange, max }: { value: string; onChang
   );
 }
 
-/** Pill tabs with counts; scrolls sideways on narrow screens. */
+/** Pill tabs with counts; wraps onto a second row on narrow screens so no tab is hidden. */
 export function SegmentedTabs<T extends string>({ tabs, value, onChange }: { tabs: { id: T; label: string; count?: number }[]; value: T; onChange: (id: T) => void }) {
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1" role="tablist">
-      <div className="inline-flex gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
+    <div role="tablist">
+      <div className="inline-flex max-w-full flex-wrap gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900">
         {tabs.map((t) => {
           const active = t.id === value;
           return (

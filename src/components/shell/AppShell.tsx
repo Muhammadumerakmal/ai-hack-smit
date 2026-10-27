@@ -59,6 +59,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Phone menu: Escape closes it, like any other overlay.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   useEffect(() => {
     api<Me>("/api/auth/me")
       .then((m) => (m.mustChangePassword ? router.replace("/change-password") : setMe(m)))
@@ -85,17 +93,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <MeContext.Provider value={me}>
       <div className="flex min-h-screen bg-background">
+        {/* Keyboard users jump past the menu; hidden until it receives focus. */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-teal-600 focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         <aside
-          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col border-r border-zinc-200/80 bg-white transition-transform duration-300 dark:border-zinc-800/80 dark:bg-zinc-950 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-            menuOpen ? "translate-x-0" : "-translate-x-full"
+          id="app-sidebar"
+          // Closed on a phone: off screen *and* invisible, so Tab and screen readers skip it (visibility waits for the slide).
+          className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 transform flex-col border-r border-zinc-200/80 bg-white transition-[transform,visibility] duration-300 dark:border-zinc-800/80 dark:bg-zinc-950 lg:visible lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+            menuOpen ? "visible translate-x-0" : "invisible -translate-x-full"
           }`}
         >
           <div className="flex h-16 items-center gap-2.5 px-5">
             <LogoMark />
-            <div className="min-w-0 leading-tight">
+            <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-sm font-semibold tracking-tight">HCM Lite</p>
               <p className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">{me.companyName}</p>
             </div>
+            <button
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
+              className="-mr-2 rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 lg:hidden dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
           </div>
           <p className="px-5 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Workspace</p>
           <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main">
@@ -139,7 +165,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b border-zinc-200/80 bg-white/80 px-4 backdrop-blur-md sm:px-6 dark:border-zinc-800/80 dark:bg-zinc-950/80">
-            <button className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-300 dark:hover:bg-zinc-900" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+            <button className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-300 dark:hover:bg-zinc-900" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-expanded={menuOpen} aria-controls="app-sidebar">
               <Icon name="menu" className="h-5 w-5" />
             </button>
             <Link href="/dashboard" className="flex items-center gap-2 lg:hidden" aria-label="HCM Lite dashboard">
@@ -166,7 +192,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               <span className="hidden sm:inline">Sign out</span>
             </button>
           </header>
-          <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 sm:px-6">{children}</main>
+          <main id="main" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-8 outline-none sm:px-6">
+            {children}
+          </main>
         </div>
         <AiChatPanel role={me.role} name={me.name} />
       </div>

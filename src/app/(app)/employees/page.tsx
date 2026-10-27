@@ -18,8 +18,8 @@ import {
   selectCls,
 } from "@/components/people/kit";
 import { useMe } from "@/components/shell/AppShell";
-import { Button, EmptyState, ErrorState, Field, Input, Notice, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
-import { api, fmtDate, money, qs, useApi } from "@/lib/client";
+import { Button, EmptyState, ErrorState, Field, FieldErrors, Input, Notice, PageHeader, Select, StatusBadge, Textarea } from "@/components/ui";
+import { api, fieldErrorsOf, fmtDate, money, qs, useApi } from "@/lib/client";
 
 interface Row {
   id: string;
@@ -272,6 +272,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
   const desigs = useApi<{ items: Option[] }>("/api/org/designations");
   const [f, setF] = useState({ fullName: "", email: "", code: "", phone: "", gender: "", departmentId: "", designationId: "", joinDate: "", status: "PROBATION", basicSalary: "" });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ code: string; email: string; tempPassword: string } | null>(null);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -283,6 +284,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setFieldErrs({});
     try {
       const r = await api<{ code: string; email: string; tempPassword: string }>("/api/employees", {
         body: {
@@ -298,6 +300,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
       onDone();
     } catch (err) {
       setError((err as Error).message);
+      setFieldErrs(fieldErrorsOf(err));
     } finally {
       setBusy(false);
     }
@@ -329,21 +332,22 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
         </>
       }
     >
+      <FieldErrors errors={fieldErrs}>
       <form id="register-employee" onSubmit={submit} className="space-y-6">
         {error && <Notice tone="error">{error}</Notice>}
         {depts.length === 0 && <Notice tone="warn">The Admin must add a department first (Company setup → Departments).</Notice>}
 
         <FormSection title="Personal">
-          <Field label="Full name">
+          <Field name="fullName" label="Full name">
             <Input required minLength={2} value={f.fullName} onChange={set("fullName")} autoComplete="off" placeholder="e.g. Ayesha Khan" />
           </Field>
-          <Field label="Work email" hint="This becomes their login.">
+          <Field name="email" label="Work email" hint="This becomes their login.">
             <Input required type="email" value={f.email} onChange={set("email")} autoComplete="off" placeholder="name@company.pk" />
           </Field>
-          <Field label="Phone">
+          <Field name="phone" label="Phone">
             <Input type="tel" value={f.phone} onChange={set("phone")} placeholder="03xx-xxxxxxx" />
           </Field>
-          <Field label="Gender">
+          <Field name="gender" label="Gender">
             <Select value={f.gender} onChange={set("gender")}>
               <option value="">Prefer not to say</option>
               <option value="male">Male</option>
@@ -354,7 +358,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
         </FormSection>
 
         <FormSection title="Job">
-          <Field label="Department">
+          <Field name="departmentId" label="Department">
             <Select required value={f.departmentId} onChange={set("departmentId")}>
               <option value="">Select a department</option>
               {depts.map((d) => (
@@ -364,7 +368,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
               ))}
             </Select>
           </Field>
-          <Field label="Designation">
+          <Field name="designationId" label="Designation">
             <Select value={f.designationId} onChange={set("designationId")}>
               <option value="">Not set</option>
               {desigs.data?.items.map((d) => (
@@ -374,22 +378,22 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
               ))}
             </Select>
           </Field>
-          <Field label="Join date">
+          <Field name="joinDate" label="Join date">
             <Input required type="date" value={f.joinDate} onChange={set("joinDate")} />
           </Field>
-          <Field label="Employment status">
+          <Field name="status" label="Employment status">
             <Select value={f.status} onChange={set("status")}>
               <option value="PROBATION">Probation</option>
               <option value="ACTIVE">Active</option>
             </Select>
           </Field>
-          <Field label="Employee code" hint="Leave empty to generate the next one (E0001…).">
+          <Field name="code" label="Employee code" hint="Leave empty to generate the next one (E0001…).">
             <Input value={f.code} onChange={set("code")} maxLength={20} className="font-mono" />
           </Field>
         </FormSection>
 
         <FormSection title="Salary" hint="Allowances follow company policy: HRA 40% and medical 10% of basic.">
-          <Field label="Basic salary (PKR / month)">
+          <Field name="basicSalary" label="Basic salary (PKR / month)">
             <Input required type="number" min={1} step="1" inputMode="numeric" value={f.basicSalary} onChange={set("basicSalary")} placeholder="e.g. 100000" />
           </Field>
           <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/40" aria-live="polite">
@@ -405,6 +409,7 @@ function RegisterModal({ depts, onClose, onDone }: { depts: Option[]; onClose: (
           </div>
         </FormSection>
       </form>
+      </FieldErrors>
     </Panel>
   );
 }

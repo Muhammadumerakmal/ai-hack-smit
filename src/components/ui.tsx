@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { cloneElement, createContext, isValidElement, useContext, useEffect, useId, useRef, type ReactNode } from "react";
 import { humanize } from "@/components/ops/format";
 
 // Shared UI kit. Every screen uses these so spacing, colours and states stay consistent.
@@ -74,14 +74,65 @@ export function Button({ variant = "primary", size = "md", loading, className, c
 }
 
 const fieldCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500";
+  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15 disabled:opacity-60 dark:border-zinc-700 dark:aria-invalid:border-red-500 dark:bg-zinc-900 dark:placeholder:text-zinc-500";
 
-export function Field({ label, hint, error, children, className }: { label: string; hint?: string; error?: string; children: ReactNode; className?: string }) {
+/** Server validation errors by field name; each <Field name="…"> inside shows its own one under the input. */
+const FieldErrorsContext = createContext<Record<string, string>>({});
+export function FieldErrors({ errors, children }: { errors: Record<string, string>; children: ReactNode }) {
+  return <FieldErrorsContext.Provider value={errors}>{children}</FieldErrorsContext.Provider>;
+}
+
+type FieldControlProps = { required?: boolean; "aria-describedby"?: string; "aria-invalid"?: boolean };
+
+/**
+ * Label + control + hint/error. A required control gets a visible "*" (screen readers already hear "required"),
+ * and the hint or error is linked to the control with aria-describedby, so it is read with the field.
+ */
+export function Field({
+  label,
+  hint,
+  error,
+  name,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  error?: string;
+  /** Field name in the API body: picks up its error from <FieldErrors>. */
+  name?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  const fromServer = useContext(FieldErrorsContext);
+  const message = error ?? (name ? fromServer[name] : undefined);
+  const msgId = useId();
+  const control = isValidElement<FieldControlProps>(children) ? children : null;
+  const required = !!control?.props.required;
+  const described = message || hint ? msgId : undefined;
   return (
     <label className={cx("block space-y-1.5", className)}>
-      <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
-      {children}
-      {error ? <span className="block text-xs text-red-600">{error}</span> : hint ? <span className="block text-xs text-zinc-500 dark:text-zinc-400">{hint}</span> : null}
+      <span className="text-[13px] font-medium text-zinc-700 dark:text-zinc-300">
+        {label}
+        {required && (
+          <span className="ml-0.5 text-red-600 dark:text-red-400" aria-hidden>
+            *
+          </span>
+        )}
+      </span>
+      {control ? cloneElement(control, { "aria-describedby": described, "aria-invalid": message ? true : undefined }) : children}
+      {message ? (
+        <span id={msgId} className="flex items-start gap-1 text-xs font-medium text-red-600 dark:text-red-400">
+          <svg viewBox="0 0 16 16" className="mt-px h-3.5 w-3.5 shrink-0" fill="currentColor" aria-hidden>
+            <path d="M8 1.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13Zm0 3a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 8 4.5Zm0 6.25a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z" />
+          </svg>
+          {message}
+        </span>
+      ) : hint ? (
+        <span id={msgId} className="block text-xs text-zinc-500 dark:text-zinc-400">
+          {hint}
+        </span>
+      ) : null}
     </label>
   );
 }

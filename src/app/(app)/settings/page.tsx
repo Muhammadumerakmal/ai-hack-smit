@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useMe } from "@/components/shell/AppShell";
-import { Badge, Button, Card, EmptyState, ErrorState, Field, Input, Loading, Modal, Notice, PageHeader, Select, Table, Tabs, Td } from "@/components/ui";
-import { api, fmtDate, useApi } from "@/lib/client";
+import { Badge, Button, Card, EmptyState, ErrorState, Field, FieldErrors, Input, Loading, Modal, Notice, PageHeader, Select, Table, Tabs, Td } from "@/components/ui";
+import { api, fieldErrorsOf, fmtDate, useApi } from "@/lib/client";
 
 type Tab = "company" | "departments" | "designations" | "leave" | "holidays";
 
@@ -58,6 +58,7 @@ function CompanyTab({ canEdit }: { canEdit: boolean }) {
 function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit: boolean; onSaved: () => void }) {
   const [f, setF] = useState<Company>(initial);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
 
@@ -90,11 +91,13 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
     setBusy(true);
     setMsg(null);
     try {
+      setFieldErrs({});
       await api("/api/org/settings", { method: "PUT", body: f });
       setMsg({ tone: "success", text: "Saved. New check-ins and leave use these rules." });
       onSaved();
     } catch (err) {
       setMsg({ tone: "error", text: (err as Error).message });
+      setFieldErrs(fieldErrorsOf(err));
     } finally {
       setBusy(false);
     }
@@ -102,25 +105,26 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
 
   return (
     <Card>
+      <FieldErrors errors={fieldErrs}>
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
         {msg && (
           <div className="sm:col-span-2">
             <Notice tone={msg.tone}>{msg.text}</Notice>
           </div>
         )}
-        <Field label="Company name" className="sm:col-span-2">
+        <Field name="companyName" label="Company name" className="sm:col-span-2">
           <Input disabled={!canEdit} value={f.companyName} onChange={(e) => setF({ ...f, companyName: e.target.value })} />
         </Field>
-        <Field label="Office start (24h)">
+        <Field name="officeStart" label="Office start (24h)">
           <Input disabled={!canEdit} type="time" value={f.officeStart} onChange={(e) => setF({ ...f, officeStart: e.target.value })} />
         </Field>
-        <Field label="Grace time (minutes)" hint="Check-in after start + grace is late">
+        <Field name="graceMinutes" label="Grace time (minutes)" hint="Check-in after start + grace is late">
           <Input disabled={!canEdit} type="number" min={0} value={f.graceMinutes} onChange={num("graceMinutes")} />
         </Field>
-        <Field label="Half day under (hours)">
+        <Field name="halfDayHours" label="Half day under (hours)">
           <Input disabled={!canEdit} type="number" step="0.5" min={1} value={f.halfDayHours} onChange={num("halfDayHours")} />
         </Field>
-        <Field label="Weekend">
+        <Field name="weekendDays" label="Weekend">
           <div className="flex flex-wrap gap-2 pt-1">
             {DAYS.map((d, i) => (
               <label key={d} className="flex items-center gap-1 text-sm">
@@ -135,13 +139,13 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
             ))}
           </div>
         </Field>
-        <Field label="Office latitude" hint="For camera check-in geofence">
+        <Field name="officeLat" label="Office latitude" hint="For camera check-in geofence">
           <Input disabled={!canEdit} type="number" step="any" value={f.officeLat ?? ""} onChange={num("officeLat")} />
         </Field>
-        <Field label="Office longitude">
+        <Field name="officeLng" label="Office longitude">
           <Input disabled={!canEdit} type="number" step="any" value={f.officeLng ?? ""} onChange={num("officeLng")} />
         </Field>
-        <Field label="Allowed radius (metres)">
+        <Field name="radiusMeters" label="Allowed radius (metres)">
           <Input disabled={!canEdit} type="number" min={20} value={f.radiusMeters} onChange={num("radiusMeters")} />
         </Field>
         {canEdit && (
@@ -176,6 +180,7 @@ function CompanyForm({ initial, canEdit, onSaved }: { initial: Company; canEdit:
           </div>
         )}
       </form>
+      </FieldErrors>
     </Card>
   );
 }

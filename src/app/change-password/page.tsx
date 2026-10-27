@@ -3,14 +3,15 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AuthCard } from "@/components/shell/AuthCard";
-import { Button, Field, Input, Notice } from "@/components/ui";
-import { api } from "@/lib/client";
+import { Button, Field, FieldErrors, Input, Notice } from "@/components/ui";
+import { api, fieldErrorsOf } from "@/lib/client";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
   const [forced, setForced] = useState(false);
   const [form, setForm] = useState({ currentPassword: "", newPassword: "", confirm: "" });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -33,6 +34,7 @@ export default function ChangePasswordPage() {
       setTimeout(() => router.replace("/dashboard"), 900);
     } catch (err) {
       setError((err as Error).message);
+      setFieldErrs(fieldErrorsOf(err));
       setBusy(false);
     }
   }
@@ -42,13 +44,14 @@ export default function ChangePasswordPage() {
       title={forced ? "Choose your own password" : "Change password"}
       subtitle={forced ? "You signed in with a temporary password. Set a new one to continue." : undefined}
     >
+      <FieldErrors errors={fieldErrs}>
       <form onSubmit={submit} className="space-y-4">
         {error && <Notice tone="error">{error}</Notice>}
         {done && <Notice tone="success">Password changed. Taking you to your dashboard…</Notice>}
-        <Field label={forced ? "Temporary password" : "Current password"}>
+        <Field name="currentPassword" label={forced ? "Temporary password" : "Current password"}>
           <Input type="password" required autoComplete="current-password" value={form.currentPassword} onChange={set("currentPassword")} />
         </Field>
-        <Field label="New password" hint="At least 8 characters, with a letter and a number.">
+        <Field name="newPassword" label="New password" hint="At least 8 characters, with a letter and a number.">
           <Input type="password" required minLength={8} autoComplete="new-password" value={form.newPassword} onChange={set("newPassword")} />
         </Field>
         <Field label="Confirm new password">
@@ -63,6 +66,7 @@ export default function ChangePasswordPage() {
           </Button>
         )}
       </form>
+      </FieldErrors>
     </AuthCard>
   );
 }

@@ -54,7 +54,11 @@ export function publicRoute(handler: (req: Request) => Promise<unknown>) {
 export function errorResponse(err: unknown) {
   if (err instanceof HttpError) return NextResponse.json({ ok: false, error: err.code, message: err.message }, { status: err.status });
   if (err instanceof z.ZodError) {
-    return NextResponse.json({ ok: false, error: "bad_request", message: z.prettifyError(err) }, { status: 400 });
+    // `fields` lets a form show each problem under its own input; `message` is the same in plain words
+    // ("Admin password: Password needs a number.") for forms that only show one summary line.
+    const fields = fieldErrors(err);
+    const summary = Object.entries(fields).map(([key, msg]) => `${fieldLabel(key)}: ${msg.replace(/\.?$/, ".")}`).join(" ");
+    return NextResponse.json({ ok: false, error: "bad_request", message: summary || z.prettifyError(err), fields }, { status: 400 });
   }
   // Known Prisma request errors map to client errors with a generic message (never Prisma's own text).
   switch (prismaCode(err)) {
@@ -67,6 +71,33 @@ export function errorResponse(err: unknown) {
   }
   console.error(err);
   return NextResponse.json({ ok: false, error: "internal", message: "Something went wrong." }, { status: 500 });
+}
+
+/** First problem per field, in plain words: { "companyName": "Use at least 2 characters." }. */
+export function fieldErrors(err: z.ZodError): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const issue of err.issues) {
+    const key = issue.path.join(".");
+    if (key && !out[key]) out[key] = fieldMessage(issue);
+  }
+  return out;
+}
+
+/** "adminPassword" → "Admin password", "items.0.name" → "Name". */
+function fieldLabel(key: string): string {
+  const last = key.split(".").filter((p) => !/^\d+$/.test(p)).pop() ?? key;
+  const words = last.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/Id$/, "").trim().toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function fieldMessage(issue: z.core.$ZodIssue): string {
+  if (issue.code === "invalid_type" && issue.input === undefined) return "This field is required.";
+  if (issue.code === "too_small" && issue.origin === "string") return Number(issue.minimum) <= 1 ? "This field is required." : `Use at least ${issue.minimum} characters.`;
+  if (issue.code === "too_big" && issue.origin === "string") return `Use at most ${issue.maximum} characters.`;
+  if (issue.code === "too_small" && issue.origin === "number") return `Must be at least ${issue.minimum}.`;
+  if (issue.code === "too_big" && issue.origin === "number") return `Must be at most ${issue.maximum}.`;
+  if (issue.code === "invalid_format" && issue.format === "email") return "Enter a valid email address.";
+  return issue.message;
 }
 
 function prismaCode(err: unknown): string | null {

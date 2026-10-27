@@ -4,8 +4,8 @@ import { useState } from "react";
 import { AnnouncementFeed, type Announcement } from "@/components/dashboard/AnnouncementFeed";
 import { cx, DIcon, Skeleton } from "@/components/dashboard/primitives";
 import { useMe } from "@/components/shell/AppShell";
-import { Button, EmptyState, ErrorState, Field, Input, Notice, Textarea } from "@/components/ui";
-import { api, useApi } from "@/lib/client";
+import { Button, EmptyState, ErrorState, Field, FieldErrors, Input, Notice, Textarea } from "@/components/ui";
+import { api, fieldErrorsOf, useApi } from "@/lib/client";
 
 const TITLE_MAX = 120;
 const BODY_MAX = 2000;
@@ -17,12 +17,14 @@ export default function AnnouncementsPage() {
   const [form, setForm] = useState({ title: "", body: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [composerOpen, setComposerOpen] = useState(false);
 
   async function post(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setMsg(null);
+    setFieldErrs({});
     try {
       const r = await api<{ notified: number }>("/api/announcements", { body: form });
       setForm({ title: "", body: "" });
@@ -30,6 +32,7 @@ export default function AnnouncementsPage() {
       reload();
     } catch (err) {
       setMsg({ tone: "error", text: (err as Error).message });
+      setFieldErrs(fieldErrorsOf(err));
     } finally {
       setBusy(false);
     }
@@ -89,9 +92,10 @@ export default function AnnouncementsPage() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">Everyone gets an in-app notification.</p>
                 </div>
               </div>
+              <FieldErrors errors={fieldErrs}>
               <form onSubmit={post} className="space-y-4">
                 {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
-                <Field label="Title" hint={`${form.title.length}/${TITLE_MAX}`}>
+                <Field name="title" label="Title" hint={`${form.title.length}/${TITLE_MAX}`}>
                   <Input
                     required
                     minLength={3}
@@ -101,7 +105,7 @@ export default function AnnouncementsPage() {
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                   />
                 </Field>
-                <Field label="Message" hint={`${form.body.length}/${BODY_MAX}`}>
+                <Field name="body" label="Message" hint={`${form.body.length}/${BODY_MAX}`}>
                   <Textarea
                     required
                     rows={6}
@@ -115,6 +119,7 @@ export default function AnnouncementsPage() {
                   Post to everyone
                 </Button>
               </form>
+              </FieldErrors>
             </div>
           </aside>
         )}

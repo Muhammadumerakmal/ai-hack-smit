@@ -213,9 +213,9 @@ function CompanyView() {
 
           <AiSummaryCard filters={{ start: filters.start, end: filters.end, department: filters.department || undefined }} />
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-3">
             <ChartPanel
-              className="lg:col-span-2"
+              className="xl:col-span-2"
               title="Attendance trend"
               subtitle="Daily attendance rate, working days only"
               table={{ head: ["Date", "Attendance"], rows: data.trend.map((p) => [p.date, `${p.attendanceRatePct}%`]) }}
@@ -458,7 +458,7 @@ function UtilBar({ pct }: { pct: number | null }) {
 function AdminKpis({ d }: { d: CompanyDashboard }) {
   const p = d.admin!.payrollCost;
   return (
-    <section aria-label="Company" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <section aria-label="Company" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <Kpi label="Attrition (YTD)" icon="exit" value={pctText(d.kpis.attrition?.attritionPct)} hint={`${plural(d.kpis.attrition?.exits ?? 0, "exit")} this year`} />
       <Kpi label="Payroll cost (gross)" icon="money" value={p.found ? money(p.totalGross) : "—"} hint={p.found ? `${monthLabel(p.month)} · ${p.status.toLowerCase()}` : p.message} />
       <Kpi label="Payroll cost (net)" icon="money" value={p.found ? money(p.totalNet) : "—"} hint={p.found ? "After deductions and tax" : "Run payroll to see costs"} />

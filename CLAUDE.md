@@ -35,7 +35,7 @@ Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgr
 - `tests/security-integrity.test.ts.wip` is parked work and does not run.
 - `tests/setup.ts` runs every test inside company 1 (all fixtures build company 1). Raw `new PrismaClient()` fixture writes must set `companyId: 1`, and fixtures that insert `id: 1` into `settings` must `setval` its sequence. `tests/tenancy.db.test.ts` is the cross-company isolation suite.
 - Prisma refuses `db push --force-reset` from an AI agent without the user's consent. For a fresh local test DB, create a new database (`CREATE DATABASE …`) and `db push` to it.
-- Last full run: 271 passing (`history/` records each session's count).
+- Last full run: 272 passing (`history/` records each session's count).
 
 ## Architecture
 
