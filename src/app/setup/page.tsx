@@ -64,8 +64,8 @@ export default function SetupPage() {
           <Input required minLength={2} value={form.adminName} onChange={set("adminName")} />
         </Field>
         {status.adminFromEnv && <Notice>Admin email and password can come from ADMIN_EMAIL / ADMIN_PASSWORD. Leave them blank to use those.</Notice>}
-        <Field name="adminEmail" label="Admin email">
-          <Input type="email" required={!status.adminFromEnv} autoComplete="username" value={form.adminEmail} onChange={set("adminEmail")} />
+        <Field name="adminEmail" label="Company email" hint="Use your work address, e.g. you@yourcompany.com. Personal mailboxes (gmail.com, yahoo.com…) aren't accepted.">
+          <Input type="email" required={!status.adminFromEnv} autoComplete="username" placeholder="you@yourcompany.com" value={form.adminEmail} onChange={set("adminEmail")} />
         </Field>
         <Field name="adminPassword" label="Admin password" hint="At least 8 characters, with a letter and a number.">
           <Input type="password" required={!status.adminFromEnv} minLength={8} autoComplete="new-password" value={form.adminPassword} onChange={set("adminPassword")} />

@@ -196,6 +196,15 @@ describe.skipIf(!hasDb)("M4 attendance + M5 leave", () => {
       await expect(decideLeave(hr, l.id, { decision: "APPROVED" })).rejects.toMatchObject({ status: 422 });
     });
 
+    it("HR cannot decide their own attendance correction (another HR must)", async () => {
+      const day = addDays(todayIso(), -21);
+      const req = await call(correctionsRoute.POST, { userId: hr.userId, body: { date: weekdayOf(day) % 6 === 0 ? addDays(day, -2) : day, checkIn: "09:05", reason: "Forgot to check in" } });
+      expect(req.status).toBe(200);
+      const own = await call(correctionDecisionRoute.POST, { userId: hr.userId, params: { id: req.body.correction.id }, body: { approve: true } });
+      expect(own.status).toBe(403);
+      expect(own.body.message).toMatch(/own request/);
+    });
+
     it("HR cannot approve their own leave", async () => {
       const mon = futureWeekday(100);
       const own = await applyForLeave(hr, { type: "casual", start: mon, end: mon, reason: "Errand" });

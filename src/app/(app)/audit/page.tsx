@@ -68,10 +68,15 @@ export default function AuditPage() {
                       {x.entityId && <span className="ml-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">{x.entityId.slice(-8)}</span>}
                     </Td>
                     <Td>
-                      {(x.before != null || x.after != null) && (
+                      {x.before != null || x.after != null ? (
                         <Button size="sm" variant="ghost" onClick={() => setOpen(open === x.id ? null : x.id)} aria-expanded={open === x.id}>
                           {open === x.id ? "Hide" : "Changes"}
                         </Button>
+                      ) : (
+                        // Actions like a password change record no before/after details.
+                        <span className="text-zinc-500 dark:text-zinc-400" title="No change details recorded">
+                          —
+                        </span>
                       )}
                     </Td>
                   </tr>

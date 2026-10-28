@@ -25,10 +25,25 @@ export function envAdmin(): { email: string; password: string } | null {
   return email && password ? { email, password } : null;
 }
 
+// Signing up creates a company, so it needs a company address. Free personal mailboxes are refused.
+// (Only for "Create your company": HR still registers employees with whatever address they use.)
+export const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "ymail.com", "rocketmail.com",
+  "hotmail.com", "hotmail.co.uk", "outlook.com", "live.com", "msn.com",
+  "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com",
+  "gmx.com", "gmx.net", "mail.com", "yandex.com", "yandex.ru", "zoho.com", "tutanota.com", "hey.com",
+]);
+export const COMPANY_EMAIL_MESSAGE = "Please use your company email address to sign up.";
+
+export function isCompanyEmail(email: string): boolean {
+  const domain = email.trim().toLowerCase().split("@").pop() ?? "";
+  return !!domain && !PERSONAL_EMAIL_DOMAINS.has(domain);
+}
+
 export const setupSchema = z.object({
   companyName: z.string().trim().min(2).max(120),
   adminName: z.string().trim().min(2).max(80),
-  adminEmail: z.email().optional(),
+  adminEmail: z.email().refine(isCompanyEmail, COMPANY_EMAIL_MESSAGE).optional(),
   adminPassword: passwordSchema.optional(),
 });
 

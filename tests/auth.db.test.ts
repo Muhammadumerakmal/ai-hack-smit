@@ -56,6 +56,18 @@ describe.skipIf(!hasDb)("M1 auth", () => {
       expect(await db.companySettings.count()).toBe(2);
     });
 
+    it("sign-up needs a company email: personal mailboxes (gmail.com, …) are refused under the field", async () => {
+      resetCompanyThrottle();
+      for (const email of ["someone@gmail.com", "Someone@GMAIL.com", "a@yahoo.com", "b@outlook.com", "c@hotmail.com", "d@icloud.com"]) {
+        const r = await call(setup.POST, { body: { companyName: "Personal Co", adminName: "Person", adminEmail: email, adminPassword: "secret123" } });
+        expect(r.status).toBe(400);
+        expect(r.body.fields.adminEmail).toBe("Please use your company email address to sign up.");
+      }
+      expect(await db.user.count({ where: { email: { contains: "gmail" } } })).toBe(0);
+      const work = await call(setup.POST, { body: { companyName: "Work Co", adminName: "Worker", adminEmail: "owner@workco.test", adminPassword: "secret123" } });
+      expect(work.status).toBe(200);
+    });
+
     it("limits how many companies one network can create per hour", async () => {
       resetCompanyThrottle();
       const make = (i: number) =>
