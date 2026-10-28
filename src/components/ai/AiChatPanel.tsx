@@ -14,7 +14,14 @@ interface Message {
   error?: boolean;
   /** the question an error answer belongs to, so "Try again" can resend it */
   retry?: string;
+  /** the question an AI answer belongs to, so "Regenerate" can ask it again */
+  question?: string;
+  /** which records the answer was read from ("Headcount", "Payroll"…); names only */
+  sources?: string[];
 }
+
+/** Plain text for the clipboard: the answer without its **bold** markers. */
+const plain = (md: string) => md.replace(/\*\*/g, "");
 
 const SUGGESTIONS: Record<Role, string[]> = {
   ADMIN: ["How many active employees are there?", "What was the payroll cost last month?", "Who is on leave today?"],
@@ -38,14 +45,48 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
   const [loading, setLoading] = useState(false);
   // One live region for screen readers: the status, then the answer (never the user's own question again).
   const [announcement, setAnnouncement] = useState("");
+  // "New chat" asks first: it clears the conversation (ui-ux-pro-max: confirm destructive actions).
+  const [confirmClear, setConfirmClear] = useState(false);
+  // After a few seconds the typing indicator says why it's still waiting (explain long waits).
+  const [slow, setSlow] = useState(false);
+  const [copied, setCopied] = useState<number | null>(null);
+  // Reading older messages: a new answer shows a "New answer" button instead of yanking the scroll.
+  const [unseen, setUnseen] = useState(false);
+  const nearBottom = useRef(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
 
   // Braces matter: newer browsers return a Promise from scrollIntoView, and an effect may only return a cleanup function.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (nearBottom.current) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading, open]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => {
+      setSlow(true);
+      setAnnouncement("Still checking the records…");
+    }, 5000);
+    return () => {
+      clearTimeout(t);
+      setSlow(false);
+    };
+  }, [loading]);
+
+  function onScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (nearBottom.current) setUnseen(false);
+  }
+
+  function jumpToLatest() {
+    nearBottom.current = true;
+    setUnseen(false);
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -66,10 +107,33 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
 
   function newChat() {
     if (loading) return;
+    setConfirmClear(false);
     setMessages([]);
     setConversationId(null);
     setInput("");
+    setUnseen(false);
+    nearBottom.current = true;
+    setAnnouncement("Started a new chat.");
     inputRef.current?.focus();
+  }
+
+  async function copy(index: number) {
+    try {
+      await navigator.clipboard.writeText(plain(messages[index].content));
+      setCopied(index);
+      setAnnouncement("Answer copied.");
+      setTimeout(() => setCopied((c) => (c === index ? null : c)), 2000);
+    } catch {
+      setAnnouncement("Copying is blocked in this browser.");
+    }
+  }
+
+  /** Ask the last question again for a fresh answer (the old answer is replaced, not kept twice). */
+  function regenerate(index: number) {
+    const question = messages[index]?.question;
+    if (!question || loading) return;
+    setMessages((m) => m.slice(0, Math.max(0, index - 1)));
+    void send(question);
   }
 
   async function send(text: string) {
@@ -81,7 +145,8 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
     setAnnouncement("Checking the records…");
 
     // Only the new question goes to the server; earlier turns live in its history.
-    const res = await postAi<{ answer: string; conversationId: string }>(
+    nearBottom.current = true; // asking a question always follows the conversation down
+    const res = await postAi<{ answer: string; conversationId: string; sources?: string[] }>(
       "chat",
       conversationId ? { conversationId, message: question } : { message: question },
     );
@@ -89,8 +154,12 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
 
     setMessages((m) => [
       ...m,
-      res.ok ? { role: "assistant", content: res.data.answer, ai: true } : { role: "assistant", content: res.message, error: true, retry: question },
+      res.ok
+        ? { role: "assistant", content: res.data.answer, ai: true, question, sources: res.data.sources ?? [] }
+        : { role: "assistant", content: res.message, error: true, retry: question },
     ]);
+    // Scrolled up to read while waiting: offer a jump instead of moving the page.
+    if (!nearBottom.current) setUnseen(true);
     setAnnouncement(res.ok ? `Assistant: ${res.data.answer.replace(/\*\*/g, "")}` : `Assistant could not answer: ${res.message}`);
     setLoading(false);
   }
@@ -139,7 +208,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
         </div>
         {messages.length > 0 && (
           <button
-            onClick={newChat}
+            onClick={() => setConfirmClear(true)}
             disabled={loading}
             aria-label="Start a new chat"
             title="New chat"
@@ -157,7 +226,19 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 text-sm">
+      {confirmClear && (
+        <div role="alertdialog" aria-label="Start a new chat?" className="flex items-center gap-2 border-b border-violet-200/70 bg-violet-50/90 px-4 py-2.5 text-xs text-violet-950 dark:border-violet-900/60 dark:bg-violet-950/60 dark:text-violet-100">
+          <span className="flex-1">Start a new chat? This clears the conversation.</span>
+          <button onClick={() => setConfirmClear(false)} autoFocus className="h-7 rounded-md px-2.5 font-medium text-violet-800 hover:bg-violet-100 dark:text-violet-200 dark:hover:bg-violet-900/50">
+            Keep
+          </button>
+          <button onClick={newChat} className="h-7 rounded-md bg-violet-600 px-2.5 font-medium text-white hover:bg-violet-700">
+            Clear
+          </button>
+        </div>
+      )}
+
+      <div ref={scrollRef} onScroll={onScroll} className="relative flex-1 overflow-y-auto px-4 py-4 text-sm">
         <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {announcement}
         </p>
@@ -197,7 +278,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
                 </div>
               </div>
             ) : (
-              <div key={i} className="flex items-start gap-2">
+              <div key={i} className="flex animate-rise items-start gap-2 [animation-duration:400ms]">
                 <AssistantAvatar error={m.error} />
                 <div className="min-w-0 max-w-[85%] space-y-2">
                   <div
@@ -209,8 +290,35 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
                   >
                     {m.error ? <p>{m.content}</p> : <RichText text={m.content} />}
                   </div>
-                  <div className="flex items-center gap-2 pl-1">
+                  {!!m.sources?.length && (
+                    // Context card: which records the answer came from (names only).
+                    <p className="border-l-2 border-violet-400 pl-2 text-[11px] leading-snug text-zinc-500 dark:border-violet-500 dark:text-zinc-400">
+                      <span className="font-medium text-zinc-600 dark:text-zinc-300">Checked:</span> {m.sources.join(" · ")}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-1 pl-1">
                     {m.ai && <AiBadge />}
+                    {m.ai && (
+                      <>
+                        <button
+                          onClick={() => copy(i)}
+                          className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
+                        >
+                          {copied === i ? <CheckIcon /> : <CopyIcon />}
+                          {copied === i ? "Copied" : "Copy"}
+                        </button>
+                        {i === messages.length - 1 && m.question && (
+                          <button
+                            onClick={() => regenerate(i)}
+                            disabled={loading}
+                            className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
+                          >
+                            <RegenerateIcon />
+                            Regenerate
+                          </button>
+                        )}
+                      </>
+                    )}
                     {m.error && m.retry && i === messages.length - 1 && (
                       <button onClick={() => retry(i)} disabled={loading} className="text-xs font-medium text-violet-700 hover:underline disabled:opacity-50 dark:text-violet-300">
                         Try again
@@ -225,18 +333,29 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
           {loading && (
             <div className="flex items-start gap-2" aria-hidden>
               <AssistantAvatar />
-              <div className="flex items-center gap-2.5 rounded-2xl glass rounded-tl-md px-3.5 py-3 text-xs text-zinc-500 shadow-sm shadow-zinc-900/5 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <div className="flex items-center gap-2.5 rounded-2xl glass rounded-tl-md px-3.5 py-3 text-xs text-zinc-500 dark:text-zinc-400">
                 <span className="flex gap-1" aria-hidden>
                   {[0, 150, 300].map((d) => (
                     <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-violet-500" style={{ animationDelay: `${d}ms` }} />
                   ))}
                 </span>
-                Checking the records…
+                {slow ? "Still checking: some questions need a few records…" : "Checking the records…"}
               </div>
             </div>
           )}
         </div>
         <div ref={endRef} />
+        {unseen && (
+          <button
+            onClick={jumpToLatest}
+            className="sticky bottom-0 left-1/2 mt-2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-violet-600 px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-violet-900/25 hover:bg-violet-700"
+          >
+            New answer
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <form
@@ -287,6 +406,31 @@ function SparkIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
       <path d="M12 2.5c.4 0 .7.3.8.6l1.2 4.1a4 4 0 0 0 2.8 2.8l4.1 1.2a.8.8 0 0 1 0 1.6l-4.1 1.2a4 4 0 0 0-2.8 2.8l-1.2 4.1a.8.8 0 0 1-1.6 0l-1.2-4.1a4 4 0 0 0-2.8-2.8l-4.1-1.2a.8.8 0 0 1 0-1.6l4.1-1.2a4 4 0 0 0 2.8-2.8l1.2-4.1c.1-.3.4-.6.8-.6Z" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12.5 10 17l9-10" />
+    </svg>
+  );
+}
+
+function RegenerateIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" />
     </svg>
   );
 }

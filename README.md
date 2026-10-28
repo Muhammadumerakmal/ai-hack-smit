@@ -20,7 +20,7 @@ npm run dev                     # http://localhost:3000
 
 **Several companies, one database:** anyone can click **Create your company** on the sign-in page and becomes the Admin of a new, separate company. Every table carries a `companyId`, and every query runs inside the signed-in user's company, so companies never see each other's people, attendance, leave, payroll, audit log or AI answers. Judges can each create their own company on the live link while the existing company keeps its data. Logins are never self-registered inside an existing company: its Admin creates HR logins and HR registers employees.
 
-**AI key:** set `AI_API_KEY` (OpenAI) in `.env`, or in the host's environment settings. Only the server reads it. `AI_MODEL` defaults to `gpt-4.1-mini`. Any OpenAI-compatible provider works via `AI_BASE_URL`.
+**AI key:** the assistant runs on **Gemini** (`gemini-3.5-flash-lite`) through Google's OpenAI-compatible endpoint, driven by the OpenAI Agents SDK. Set `AI_API_KEY` (a Gemini key from Google AI Studio), `AI_MODEL="gemini-3.5-flash-lite"` and `AI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"` in `.env`, or in the host's environment settings. Only the server reads them. Any other OpenAI-compatible provider works the same way; with no `AI_BASE_URL` it calls OpenAI (`AI_MODEL` defaults to `gpt-4.1-mini`).
 
 **Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
 

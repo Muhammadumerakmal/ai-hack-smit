@@ -1,5 +1,5 @@
 /**
- * LIVE check of the AI assistant against the real provider (costs a few cents; ~25 calls).
+ * LIVE check of the AI assistant against the real provider (costs a few cents, or free on a free-tier key; ~25 calls).
  * Not part of `npm test`. Seeds a LOCAL database first.
  *
  *   DATABASE_URL=postgresql://hcm:hcm@localhost:5432/hcm_f npx tsx --env-file=.env scripts/qa-live-ai.ts
@@ -13,6 +13,7 @@ import { runSmartLeave } from "../src/server/ai/smart-leave";
 import { runSummary } from "../src/server/ai/summary";
 import { getDashboardKpis } from "../src/server/services/analytics.service";
 import { getLeaveBalance } from "../src/server/services/leave.service";
+import { runInCompany } from "../src/lib/tenant";
 import { seedDemo } from "./dev-seed";
 
 const db = new PrismaClient();
@@ -93,10 +94,11 @@ async function main() {
   }
   check("nothing was saved by smart leave", (await db.leaveRequest.count()) === before);
 
-  console.log(`\nLIVE RESULT: ${pass} passed, ${fail} failed (model ${process.env.AI_MODEL || "gpt-4.1-mini"})`);
+  console.log(`\nLIVE RESULT: ${pass} passed, ${fail} failed (model ${process.env.AI_MODEL || "gpt-4.1-mini"}${process.env.AI_BASE_URL ? ` via ${new URL(process.env.AI_BASE_URL).host}` : ""})`);
 }
 
-main()
+// The demo company is company 1; services only run inside a company (src/lib/tenant.ts).
+runInCompany(1, main)
   .catch((e) => {
     console.error(e);
     process.exitCode = 1;

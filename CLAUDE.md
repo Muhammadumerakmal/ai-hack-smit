@@ -24,7 +24,7 @@ npx vitest run tests/unit.test.ts -t "working days"   # one test by name
 TEST_DATABASE_URL=postgresql://hcm:hcm@localhost:5432/hcm_test npx vitest run   # run against a separate DB
 ```
 
-Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgres and `.env` holds the hosted Neon URL. Required: `DATABASE_URL`, `JWT_SECRET`, `AI_API_KEY`. Optional: `AI_MODEL` (default `gpt-4.1-mini`), `AI_BASE_URL` (any OpenAI-compatible provider), `AI_TIMEOUT_MS`, `AI_RATE_LIMIT_PER_HOUR`, `APP_TZ` (default `Asia/Karachi`), `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
+Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgres and `.env` holds the hosted Neon URL. Required: `DATABASE_URL`, `JWT_SECRET`, `AI_API_KEY`. Optional: `AI_MODEL` (default `gpt-4.1-mini`; the project runs `gemini-3.5-flash-lite`), `AI_BASE_URL` (any OpenAI-compatible provider; Gemini is `https://generativelanguage.googleapis.com/v1beta/openai/`), `AI_TIMEOUT_MS`, `AI_RATE_LIMIT_PER_HOUR`, `APP_TZ` (default `Asia/Karachi`), `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 
 ### Test caveats
 - **DB tests TRUNCATE every table and reseed** (`tests/helpers.ts → seed()`). By default they use the `DATABASE_URL` from `.env`/`.env.local`, which is your dev database. Pass `TEST_DATABASE_URL` if you want to keep dev data.

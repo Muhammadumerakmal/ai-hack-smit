@@ -112,7 +112,7 @@ export async function runChat(
   actor: Session,
   req: ChatRequest,
   signal: AbortSignal,
-): Promise<AiRun<{ answer: string; conversationId: string }>> {
+): Promise<AiRun<{ answer: string; conversationId: string; sources: string[] }>> {
   configureAgentsSdk();
   const conversationId = req.conversationId ?? crypto.randomUUID();
   const session = await openChatSession(actor.userId, conversationId, req.message);
@@ -170,5 +170,22 @@ export async function runChat(
   if (result.rawResponses.at(-1)?.providerData?.finishReason === "length") {
     answer += "\n\n(This answer was cut short. Please ask a narrower question.)";
   }
-  return { data: { answer, conversationId }, output: answer, toolCalls, model, usage };
+  return { data: { answer, conversationId, sources: sourcesOf(toolCalls) }, output: answer, toolCalls, model, usage };
+}
+
+/** Plain names of the records an answer was read from, shown under it in the chat ("Checked: Headcount · Payroll"). */
+const SOURCE_LABELS: Record<string, string> = {
+  get_headcount: "Headcount",
+  get_attendance_summary: "Attendance",
+  get_late_comers: "Late arrivals",
+  get_leave_summary: "Leave",
+  get_my_leave_balance: "Your leave balance",
+  get_payroll_summary: "Payroll",
+  search_employees: "Employee directory",
+  get_people_insights: "People insights",
+};
+
+/** Only tool names that ran successfully; never the data itself. */
+export function sourcesOf(calls: { name: string; ok: boolean }[]): string[] {
+  return [...new Set(calls.filter((c) => c.ok).map((c) => SOURCE_LABELS[c.name] ?? c.name.replace(/^get_/, "").replace(/_/g, " ")))];
 }

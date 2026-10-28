@@ -45,3 +45,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [13 Responsive breakpoints](2026-10-27-04-responsive-breakpoints.md) | 2026-10-27 | Side-by-side layouts move from `lg` to `xl` (sidebar width), filter bar fix, wrapping tab strips, no truncated KPI values |
 | [14 Glassmorphism](2026-10-27-05-glassmorphism.md) | 2026-10-27 | Glass surfaces and colour field, measured contrast fixes, focus-ring layer bug, pointer cursor, turbopack root |
 | [15 Brief re-audit & branding](2026-10-27-06-brief-audit-branding.md) | 2026-10-27 | Demo script 24/24 on the multi-company build; Saylani/hackathon wording removed |
+| [16 Gemini & chat UX](2026-10-28-01-gemini-chat-ux.md) | 2026-10-28 | Gemini flash-lite via the OpenAI-compatible endpoint; chat sources, copy, regenerate, slow notice, confirm, new-answer jump |

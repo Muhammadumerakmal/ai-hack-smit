@@ -180,12 +180,13 @@ describe.skipIf(!hasDb)("M8 against the database", () => {
     it("remembers earlier turns of the same conversation, from the database", async () => {
       const turn = chatTurn("How many sick leaves do I have left?");
       setChatModel(new ScriptedModel([callTool("get_my_leave_balance"), say("You have 7 sick leaves left this year.")]));
-      await runChat(sara, turn, signal);
+      const first = await runChat(sara, turn, signal);
+      expect(first.data.sources).toEqual(["Your leave balance"]); // shown under the answer; names only, never data
 
       const model = new ScriptedModel([say("And 14 annual leaves.")]);
       setChatModel(model);
       const run = await runChat(sara, chatTurn("And annual?", turn.conversationId), signal);
-      expect(run.data).toEqual({ answer: "And 14 annual leaves.", conversationId: turn.conversationId });
+      expect(run.data).toEqual({ answer: "And 14 annual leaves.", conversationId: turn.conversationId, sources: [] });
 
       // The second run saw the first question and answer, then the new question.
       const texts = model.requests[0].input.map((i) => JSON.stringify(i));
