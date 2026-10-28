@@ -65,7 +65,7 @@ export function FilterBar({
   }
 
   return (
-    <div className="sticky top-16 z-[5] -mx-4 mb-6 glass-control rounded-none border-x-0 border-t-0 px-4 py-3 sm:-mx-6 sm:px-6">
+    <div className="sticky top-16 z-[5] -mx-4 mb-6 glass-control glass-bar rounded-none border-x-0 border-t-0 px-4 py-3 sm:-mx-6 sm:px-6">
       {/* Phone summary row */}
       <div className="flex items-center justify-between gap-3 md:hidden">
         <div className="min-w-0">

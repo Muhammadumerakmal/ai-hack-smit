@@ -74,7 +74,7 @@ export function Button({ variant = "primary", size = "md", loading, className, c
 }
 
 const fieldCls =
-  "w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 py-2 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15 disabled:opacity-60 dark:border-zinc-700 dark:aria-invalid:border-red-500 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500";
+  "w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 py-2 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15 disabled:opacity-60 dark:border-zinc-700 dark:aria-invalid:border-red-500 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500";
 
 /** Server validation errors by field name; each <Field name="…"> inside shows its own one under the input. */
 const FieldErrorsContext = createContext<Record<string, string>>({});

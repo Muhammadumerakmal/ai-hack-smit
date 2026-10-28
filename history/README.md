@@ -48,3 +48,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [16 Gemini & chat UX](2026-10-28-01-gemini-chat-ux.md) | 2026-10-28 | Gemini flash-lite via the OpenAI-compatible endpoint; chat sources, copy, regenerate, slow notice, confirm, new-answer jump |
 | [17 Company email & empty states](2026-10-28-02-company-email-rbac-empty-states.md) | 2026-10-28 | Sign-up needs a company email; audit dash; HR scope test; slow-Gemini investigation |
 | [18 Liquid Glass](2026-10-28-03-liquid-glass.md) | 2026-10-28 | Liquid Glass on nav and controls, card sheen, drifting orbs; contrast re-measured |
+| [19 Performance & responsive](2026-10-28-04-performance-responsive.md) | 2026-10-28 | Lag fixed (still orbs, blur only on bars), 100-screenshot responsive sweep, tile rows and calendar labels |

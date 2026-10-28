@@ -129,6 +129,10 @@
     inset 0 -1px 0 var(--control-rim-low),
     0 0 0 1px var(--glass-edge),
     0 6px 16px -8px rgb(16 24 40 / 0.22);
+}
+/* Performance: a backdrop blur is a GPU pass on every repaint. Only bars that content scrolls under (the header,
+   the dashboard filter bar) blur; tabs, toggles and buttons sit on calm backgrounds where a blur shows nothing. */
+@utility glass-bar {
   -webkit-backdrop-filter: blur(var(--control-blur)) saturate(180%);
   backdrop-filter: blur(var(--control-blur)) saturate(180%);
 }
@@ -172,16 +176,7 @@ body::after {
     radial-gradient(22rem 22rem at 18% 30%, var(--orb-1), transparent 70%),
     radial-gradient(26rem 26rem at 82% 22%, var(--orb-2), transparent 70%),
     radial-gradient(24rem 24rem at 62% 82%, var(--orb-3), transparent 70%);
-  animation: orb-drift 48s ease-in-out infinite alternate;
-  will-change: transform;
-}
-@keyframes orb-drift {
-  from {
-    transform: translate3d(-3%, -2%, 0) rotate(0deg);
-  }
-  to {
-    transform: translate3d(3%, 3%, 0) rotate(8deg);
-  }
+  /* Still on purpose: a moving layer under blurred elements forced a re-blur on every frame (dropped frames on phones). */
 }
 
 /* Tailwind 4 resets buttons to the default cursor; clickable things should show a pointer. */
@@ -223,6 +218,14 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
+/* Phones: smaller blur radii are much cheaper for mobile GPUs and look the same at that size. */
+@media (max-width: 640px) {
+  :root {
+    --glass-blur: 10px;
+    --control-blur: 12px;
+  }
+}
+
 /* People who ask the OS for less transparency get solid panels and no blur. */
 @media (prefers-reduced-transparency: reduce) {
   :root {
@@ -235,9 +238,6 @@ table {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::after {
-    animation: none;
-  }
   *,
   *::before,
   *::after {

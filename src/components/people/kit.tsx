@@ -95,14 +95,14 @@ export function SearchInput({ value, onChange, placeholder, label = "Search" }: 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
-        className="h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 pl-9 pr-3 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 dark:border-zinc-700 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500"
+        className="h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 pl-9 pr-3 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 dark:border-zinc-700 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500"
       />
     </div>
   );
 }
 
 export const selectCls =
-  "h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900/60";
+  "h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900/60";
 
 /** Toolbar button (secondary look) with an icon; label hides on very small screens when `compact`. */
 export function ToolButton({

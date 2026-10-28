@@ -181,7 +181,12 @@ function CompanyView() {
       {data && (
         <div className={cx("space-y-6 transition-opacity duration-300", refreshing && "opacity-60")} aria-busy={refreshing}>
           {/* Today */}
-          <section aria-label="Today" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          <section
+            aria-label="Today"
+            // Five tiles with no empty slot at any width: phone 2+2+1 (last spans the row), tablet 3+2 on a 6-column grid, wide 5.
+            // Each rule is limited to its own range (max-sm, sm:max-xl), so none has to be overridden at a wider size.
+            className="grid grid-cols-2 gap-3 sm:grid-cols-6 xl:grid-cols-5 max-sm:[&>*:last-child]:col-span-2 sm:max-xl:[&>*:nth-child(-n+3)]:col-span-2 sm:max-xl:[&>*:nth-child(n+4)]:col-span-3"
+          >
             <Kpi label="Headcount" icon="people" value={data.kpis.headcount.total} hint={`${data.kpis.headcount.active} active · ${data.kpis.headcount.probation} on probation`} />
             <Kpi label="Present today" icon="check" tone="good" value={data.kpis.today.present} hint={`${data.kpis.today.notCheckedIn} not checked in yet`} />
             <Kpi label="On leave today" icon="leave" tone="info" value={data.kpis.today.onLeave} hint="Approved leave covering today" />

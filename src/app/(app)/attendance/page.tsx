@@ -227,9 +227,10 @@ function MonthCalendar({ month, days, onPick }: { month: string; days: CalendarD
                   </span>
                   {!quiet && (
                     <span className="mt-auto hidden min-w-0 text-left sm:block">
-                      <span className="flex items-center gap-1 truncate text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
-                        <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", DOT[tone])} aria-hidden />
-                        <span className="truncate">{d.holiday ?? humanize(kind)}</span>
+                      {/* Two lines rather than "Not check…" on tablets, where the cells are narrow. */}
+                      <span className="flex items-start gap-1 text-[11px] font-medium leading-tight text-zinc-700 dark:text-zinc-200">
+                        <span className={cx("mt-1 h-1.5 w-1.5 shrink-0 rounded-full", DOT[tone])} aria-hidden />
+                        <span className="line-clamp-2 min-w-0 break-words">{d.holiday ?? humanize(kind)}</span>
                       </span>
                       {d.checkIn && (
                         <span className="hidden truncate text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400 lg:block">
