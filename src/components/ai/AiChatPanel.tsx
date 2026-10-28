@@ -365,7 +365,7 @@ export function AiChatPanel({ role, name, defaultOpen = false }: { role: Role; n
         }}
         className="border-t border-white/60 bg-white/40 p-3 dark:border-white/5 dark:bg-zinc-950/30"
       >
-        <div className="flex items-end gap-2 rounded-xl border border-zinc-300 bg-white py-1.5 pl-3 pr-1.5 shadow-sm shadow-zinc-900/5 transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/15 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex items-end gap-2 rounded-xl glass-control py-1.5 pl-3 pr-1.5 transition focus-within:border-violet-500 focus-within:ring-4 focus-within:ring-violet-500/15">
           <textarea
             ref={inputRef}
             rows={1}

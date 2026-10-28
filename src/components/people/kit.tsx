@@ -124,7 +124,7 @@ export function ToolButton({
 }) {
   const styles = {
     primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
-    secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
+    secondary: "glass-control text-zinc-800 hover:bg-white/80 dark:text-zinc-100 dark:hover:bg-white/10",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
     danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40",
   }[variant];

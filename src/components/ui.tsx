@@ -50,7 +50,7 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "
 export function Button({ variant = "primary", size = "md", loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
     primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
-    secondary: "border border-zinc-300 bg-white text-zinc-800 shadow-sm shadow-zinc-900/5 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800",
+    secondary: "glass-control text-zinc-800 hover:bg-white/80 dark:text-zinc-100 dark:hover:bg-white/10",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
     // AI actions only (violet is reserved for AI across the app)

@@ -196,7 +196,7 @@ export function timeAgo(iso: string, now = Date.now()): string {
 /** Small "Chart / Table" switch so every chart has a table view (values reachable without hover). */
 export function ViewToggle({ value, onChange }: { value: "chart" | "table"; onChange: (v: "chart" | "table") => void }) {
   return (
-    <div role="group" aria-label="View" className="inline-flex rounded-lg border border-zinc-200 p-0.5 text-[11px] font-medium dark:border-zinc-800">
+    <div role="group" aria-label="View" className="inline-flex rounded-lg glass-control p-0.5 text-[11px] font-medium">
       {(["chart", "table"] as const).map((v) => (
         <button
           key={v}

@@ -135,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   aria-current={active ? "page" : undefined}
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     active
-                      ? "bg-teal-50 font-medium text-teal-800 dark:bg-teal-500/10 dark:text-teal-300"
+                      ? "glass-control font-medium text-teal-800 dark:text-teal-300"
                       : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
                   }`}
                 >
@@ -164,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {menuOpen && <div className="fixed inset-0 z-20 bg-zinc-950/40 backdrop-blur-[2px] lg:hidden" onClick={() => setMenuOpen(false)} />}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 border-b border-white/60 bg-white/55 px-4 backdrop-blur-xl backdrop-saturate-150 sm:px-6 dark:border-white/5 dark:bg-zinc-950/45">
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-2 glass-control rounded-none border-x-0 border-t-0 px-4 sm:px-6">
             <button className="rounded-lg p-2 text-zinc-600 hover:bg-zinc-100 lg:hidden dark:text-zinc-300 dark:hover:bg-zinc-900" onClick={() => setMenuOpen(true)} aria-label="Open menu" aria-expanded={menuOpen} aria-controls="app-sidebar">
               <Icon name="menu" className="h-5 w-5" />
             </button>
