@@ -77,7 +77,7 @@ Access is checked on the server for every request (`withSession` → role guard 
 The AI explains and assists; the database is the only source of truth.
 
 ```
-Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · 15 s · ai_logs)
+Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · timeout · ai_logs)
                                   │
                                   ▼
                         OpenAI (Agents SDK; tools for this role only)
@@ -101,7 +101,7 @@ Browser ──POST /api/ai/chat──▶ guard (auth · active user · 20/h · 1
 - The model is offered only its role's tools, and `runTool` checks the role again, so an employee asking for a colleague's salary has no tool that could answer.
 - The model never touches the database or saves anything. Smart leave only pre-fills the form.
 - JSON output is validated with one retry, then the normal form appears. Summary bullets may only quote numbers that appear in the KPI JSON.
-- 15 s timeout with a friendly fallback, 20 requests per user per hour, and every call is logged in `ai_logs`.
+- Timeout with a friendly fallback (`AI_TIMEOUT_MS`, default 15 s as the brief asks; this deployment uses 45 s because Gemini replies took 15–20 s on busy days), 20 requests per user per hour, and every call is logged in `ai_logs`.
 - Answers carry an **AI-generated** label.
 
 ## Project layout

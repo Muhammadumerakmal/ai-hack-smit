@@ -16,3 +16,7 @@
 ## Open / next
 - The owner should decide how to handle the slow provider: wait for Google, use a paid tier, switch back to OpenAI, or raise `AI_TIMEOUT_MS` (the brief asks for 15 s).
 - Vercel still needs the Gemini env vars, as noted in the previous entry.
+
+## Follow-up (same day)
+- Owner's decisions: keep HR's salary and payroll-draft access as the brief requires, and raise the AI limit to 45 s. `AI_TIMEOUT_MS=45000` is in `.env` and `.env.example` (the code default stays 15 s). The AI routes' `maxDuration` goes from 30 to 60, so the guard's friendly timeout answers before the host cuts the request. README now says the timeout is configurable.
+- Check: 5 real HR questions through the app with live Gemini all answered correctly, with sources, in 30–35 s each (Gemini's latency that day). Vercel needs `AI_TIMEOUT_MS=45000` too.

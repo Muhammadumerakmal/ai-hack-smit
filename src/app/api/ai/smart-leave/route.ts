@@ -3,7 +3,8 @@ import { forbidden } from "@/lib/errors";
 import { guardedAiCall } from "@/server/ai/guard";
 import { runSmartLeave, smartLeaveRequestSchema } from "@/server/ai/smart-leave";
 
-export const maxDuration = 30;
+// Above AI_TIMEOUT_MS (45 s while Gemini is slow), so the guard's friendly timeout answers before the host cuts the request.
+export const maxDuration = 60;
 
 // POST /api/ai/smart-leave  { text }  → a pre-filled draft. Nothing is saved.
 export const POST = withSession(async (req, session) => {
