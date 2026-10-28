@@ -196,7 +196,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {children}
           </main>
         </div>
-        <AiChatPanel role={me.role} name={me.name} />
+        <AiChatPanel role={me.role} name={me.name} company={me.companyName} />
       </div>
     </MeContext.Provider>
   );
