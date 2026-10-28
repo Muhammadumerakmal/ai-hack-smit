@@ -174,7 +174,7 @@ export function DataTable({ rows, head }: { rows: (string | number)[][]; head: s
   return (
     <div className="max-h-72 overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
       <table className="w-full text-left text-[13px]">
-        <thead className="sticky top-0 bg-zinc-50 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:bg-zinc-900">
+        <thead className="sticky top-0 bg-white/85 text-[11px] uppercase tracking-[0.06em] text-zinc-500 backdrop-blur-md dark:bg-zinc-900/85 dark:text-zinc-400">
           <tr>
             {head.map((h, i) => (
               <th key={h} className={cx("px-3 py-2 font-medium", i > 0 && "text-right")}>

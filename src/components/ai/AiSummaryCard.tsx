@@ -47,7 +47,7 @@ export function AiSummaryCard({ filters }: { filters: DashboardFilters }) {
         <button
           onClick={summarize}
           disabled={state.kind === "loading"}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-violet-600 px-3.5 text-sm font-medium text-white shadow-sm shadow-violet-900/10 transition hover:bg-violet-700 active:bg-violet-800 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg glass-gloss bg-violet-600 px-3.5 text-sm font-medium text-white transition hover:bg-violet-700 active:bg-violet-800 disabled:opacity-60"
         >
           {state.kind === "loading" && <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
           {state.kind === "loading" ? "Summarizing…" : state.kind === "done" ? "Refresh" : "Summarize"}

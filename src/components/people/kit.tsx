@@ -95,14 +95,14 @@ export function SearchInput({ value, onChange, placeholder, label = "Search" }: 
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={label}
-        className="h-10 w-full rounded-lg border border-zinc-300 bg-white pl-9 pr-3 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 dark:border-zinc-700 dark:bg-zinc-900 dark:placeholder:text-zinc-500"
+        className="h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 pl-9 pr-3 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 dark:border-zinc-700 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500"
       />
     </div>
   );
 }
 
 export const selectCls =
-  "h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900";
+  "h-10 w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900/60";
 
 /** Toolbar button (secondary look) with an icon; label hides on very small screens when `compact`. */
 export function ToolButton({
@@ -123,7 +123,7 @@ export function ToolButton({
   title?: string;
 }) {
   const styles = {
-    primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
+    primary: "glass-gloss bg-teal-700 text-white hover:bg-teal-800 active:bg-teal-900",
     secondary: "glass-control text-zinc-800 hover:bg-white/80 dark:text-zinc-100 dark:hover:bg-white/10",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
     danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50 dark:border-red-900/60 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40",

@@ -102,7 +102,7 @@ export function Kpi({
       <div className="flex items-start justify-between gap-2">
         <p className="text-[12px] font-medium leading-tight text-zinc-500 dark:text-zinc-400">{label}</p>
         {icon && (
-          <span className={cx("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", TONE_ICON[tone])}>
+          <span className={cx("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-[inset_0_1px_0_rgb(255_255_255/0.8)] ring-1 ring-inset ring-white/70 dark:shadow-none dark:ring-white/10", TONE_ICON[tone])}>
             <DIcon name={icon} />
           </span>
         )}

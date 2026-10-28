@@ -66,7 +66,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
 
       {/* Form panel */}
       <section className="flex items-start justify-center px-4 py-10 sm:px-8 lg:items-center lg:py-12">
-        <div className="glass w-full max-w-[440px] animate-rise rounded-3xl p-6 [animation-delay:200ms] sm:p-8">
+        <div className="glass w-full max-w-[440px] animate-rise rounded-3xl p-6 backdrop-blur-xl backdrop-saturate-150 [animation-delay:200ms] sm:p-8">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {subtitle && <p className="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{subtitle}</p>}
           <div className="mt-7">{children}</div>

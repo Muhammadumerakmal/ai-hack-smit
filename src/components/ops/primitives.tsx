@@ -98,7 +98,7 @@ export function Panel({
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-100 px-4 py-4 sm:px-5 dark:border-zinc-800/70">
           <div className="flex min-w-0 items-start gap-3">
             {icon && (
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-50/80 text-teal-700 shadow-[inset_0_1px_0_rgb(255_255_255/0.8)] ring-1 ring-inset ring-white/70 dark:bg-teal-500/10 dark:text-teal-300 dark:shadow-none dark:ring-white/10">
                 <OpsIcon name={icon} className="h-[18px] w-[18px]" />
               </span>
             )}
@@ -403,7 +403,7 @@ export function DataList<T>({
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50/70 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-400">
+            <tr className="border-b border-zinc-200 bg-white/45 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800 dark:bg-white/[0.03] dark:text-zinc-400">
               {columns.map((c) => (
                 <th key={c.key} scope="col" className={cx("whitespace-nowrap px-4 py-3 font-medium first:pl-5 last:pr-5", c.align === "right" && "text-right")}>
                   {c.header}

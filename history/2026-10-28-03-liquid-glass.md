@@ -13,3 +13,10 @@
 
 ## Decisions
 - Kept Liquid Glass to navigation and controls, as the skill's checklist says ("Use for navigation and controls", "Keep content on a separate layer"). Form inputs stay solid for legibility.
+
+## Second pass (same day)
+- `glass-gloss` utility: a top shine (16%, fading out by 45% of the height, so white labels keep their contrast), a light rim and a lift. Used on the teal primary buttons (both kits), the violet AI buttons and Summarize.
+- Frosted form fields: inputs, selects and search are `bg-white/70` with a small blur (dark `zinc-900/60`).
+- Frosted table headers (both tables and the sticky chart table), glass icon bubbles on KPI tiles, a stronger blur behind dialogs, and a real backdrop blur on the sign-in card (a single element, so it's cheap).
+- Content cards deliberately have no blur: the orbs move, so every blurred card would be re-blurred every frame.
+- Measured again: contrast unchanged, with the same single viewport-edge artifact.

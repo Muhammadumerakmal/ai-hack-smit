@@ -49,12 +49,12 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "
 
 export function Button({ variant = "primary", size = "md", loading, className, children, disabled, ...rest }: ButtonProps) {
   const styles = {
-    primary: "bg-teal-700 text-white shadow-sm shadow-teal-900/10 hover:bg-teal-800 active:bg-teal-900",
+    primary: "glass-gloss bg-teal-700 text-white hover:bg-teal-800 active:bg-teal-900",
     secondary: "glass-control text-zinc-800 hover:bg-white/80 dark:text-zinc-100 dark:hover:bg-white/10",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
     // AI actions only (violet is reserved for AI across the app)
-    ai: "bg-violet-600 text-white shadow-sm shadow-violet-900/10 hover:bg-violet-700 active:bg-violet-800",
+    ai: "glass-gloss bg-violet-600 text-white hover:bg-violet-700 active:bg-violet-800",
   }[variant];
   return (
     <button
@@ -74,7 +74,7 @@ export function Button({ variant = "primary", size = "md", loading, className, c
 }
 
 const fieldCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm shadow-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15 disabled:opacity-60 dark:border-zinc-700 dark:aria-invalid:border-red-500 dark:bg-zinc-900 dark:placeholder:text-zinc-500";
+  "w-full rounded-lg border border-zinc-300/90 bg-white/70 px-3 py-2 text-sm shadow-sm backdrop-blur-sm shadow-zinc-900/5 outline-none transition-colors placeholder:text-zinc-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/15 aria-invalid:border-red-500 aria-invalid:focus:ring-red-500/15 disabled:opacity-60 dark:border-zinc-700 dark:aria-invalid:border-red-500 dark:bg-zinc-900/60 dark:placeholder:text-zinc-500";
 
 /** Server validation errors by field name; each <Field name="…"> inside shows its own one under the input. */
 const FieldErrorsContext = createContext<Record<string, string>>({});
@@ -175,7 +175,7 @@ export function Table({ head, children, empty }: { head: ReactNode[]; children: 
     <div className="-mx-4 overflow-x-auto sm:mx-0">
       <table className="w-full min-w-[560px] text-left text-sm">
         <thead>
-          <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:text-zinc-400 dark:border-zinc-800">
+          <tr className="border-b border-zinc-200 bg-white/40 text-[11px] uppercase tracking-[0.06em] text-zinc-500 dark:border-zinc-800 dark:bg-white/[0.03] dark:text-zinc-400">
             {head.map((h, i) => (
               <th key={i} className="px-3 py-2.5 font-medium first:pl-4 sm:first:pl-3">
                 {h}
@@ -255,7 +255,7 @@ export function Modal({ open, title, onClose, children, footer }: { open: boolea
     <dialog
       ref={ref}
       onClose={onClose}
-      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-2xl glass-strong p-0 text-zinc-900 backdrop:bg-zinc-950/40 backdrop:backdrop-blur-sm dark:text-zinc-100"
+      className="m-auto w-[min(560px,calc(100vw-2rem))] rounded-2xl glass-strong p-0 text-zinc-900 backdrop:bg-zinc-950/35 backdrop:backdrop-blur-md dark:text-zinc-100"
     >
       <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <h2 className="text-sm font-semibold">{title}</h2>
