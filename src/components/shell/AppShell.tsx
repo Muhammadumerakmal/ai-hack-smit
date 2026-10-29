@@ -29,8 +29,12 @@ export function useMe(): Me {
   return me;
 }
 
+type NavGroup = "Overview" | "People" | "Time & leave" | "Pay" | "Company";
+const NAV_GROUPS: NavGroup[] = ["Overview", "People", "Time & leave", "Pay", "Company"];
+
 interface NavItem {
   href: string;
+  group: NavGroup;
   label: string;
   icon: string;
   roles: Role[];
@@ -40,17 +44,17 @@ interface NavItem {
 
 // One menu per role (checklist #02). The server enforces access; this only decides what is shown.
 export const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "▦", roles: ["ADMIN", "HR", "EMPLOYEE"] },
-  { href: "/employees", label: "Employees", icon: "👥", roles: ["ADMIN", "HR"] },
-  { href: "/profile", label: "My profile", icon: "👤", roles: ["HR", "EMPLOYEE"], needsEmployee: true },
-  { href: "/attendance", label: "Attendance", icon: "🕘", roles: ["ADMIN", "HR", "EMPLOYEE"] },
-  { href: "/leave", label: "Leave", icon: "🌴", roles: ["ADMIN", "HR", "EMPLOYEE"] },
-  { href: "/payroll", label: "Payroll", icon: "💼", roles: ["ADMIN", "HR"] },
-  { href: "/payslips", label: "Payslips", icon: "🧾", roles: ["ADMIN", "HR", "EMPLOYEE"] },
-  { href: "/announcements", label: "Announcements", icon: "📣", roles: ["ADMIN", "HR", "EMPLOYEE"] },
-  { href: "/users", label: "Users & logins", icon: "🔑", roles: ["ADMIN"] },
-  { href: "/settings", label: "Company setup", icon: "⚙", roles: ["ADMIN", "HR"] },
-  { href: "/audit", label: "Audit log", icon: "📜", roles: ["ADMIN"] },
+  { href: "/dashboard", label: "Dashboard", group: "Overview", icon: "▦", roles: ["ADMIN", "HR", "EMPLOYEE"] },
+  { href: "/announcements", label: "Announcements", group: "Overview", icon: "📣", roles: ["ADMIN", "HR", "EMPLOYEE"] },
+  { href: "/employees", label: "Employees", group: "People", icon: "👥", roles: ["ADMIN", "HR"] },
+  { href: "/profile", label: "My profile", group: "People", icon: "👤", roles: ["HR", "EMPLOYEE"], needsEmployee: true },
+  { href: "/attendance", label: "Attendance", group: "Time & leave", icon: "🕘", roles: ["ADMIN", "HR", "EMPLOYEE"] },
+  { href: "/leave", label: "Leave", group: "Time & leave", icon: "🌴", roles: ["ADMIN", "HR", "EMPLOYEE"] },
+  { href: "/payroll", label: "Payroll", group: "Pay", icon: "💼", roles: ["ADMIN", "HR"] },
+  { href: "/payslips", label: "Payslips", group: "Pay", icon: "🧾", roles: ["ADMIN", "HR", "EMPLOYEE"] },
+  { href: "/users", label: "Users & logins", group: "Company", icon: "🔑", roles: ["ADMIN"] },
+  { href: "/settings", label: "Company setup", group: "Company", icon: "⚙", roles: ["ADMIN", "HR"] },
+  { href: "/audit", label: "Audit log", group: "Company", icon: "📜", roles: ["ADMIN"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -123,9 +127,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </svg>
             </button>
           </div>
-          <p className="px-5 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Workspace</p>
-          <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Main">
-            {items.map((n) => {
+          <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-1" aria-label="Main">
+            {NAV_GROUPS.map((group) => {
+              const inGroup = items.filter((n) => n.group === group);
+              if (!inGroup.length) return null;
+              return (
+                <div key={group} role="group" aria-labelledby={`nav-${group}`} className="space-y-0.5 pt-3 first:pt-1">
+                  <p id={`nav-${group}`} className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+                    {group}
+                  </p>
+                  {inGroup.map((n) => {
               const active = pathname === n.href || pathname.startsWith(`${n.href}/`);
               return (
                 <Link
@@ -136,7 +147,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
                     active
                       ? "glass-control font-medium text-teal-800 dark:text-teal-300"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"
+                      : "text-zinc-600 hover:bg-white/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-100"
                   }`}
                 >
                   {active && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-teal-600 dark:bg-teal-400" aria-hidden />}
@@ -144,10 +155,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {n.label}
                 </Link>
               );
+                  })}
+                </div>
+              );
             })}
           </nav>
           <div className="border-t border-zinc-200/80 p-3 dark:border-zinc-800/80">
-            <div className="flex items-center gap-3 rounded-xl bg-zinc-50 px-3 py-2.5 ring-1 ring-inset ring-zinc-200/70 dark:bg-zinc-900/60 dark:ring-zinc-800">
+            <div className="flex items-center gap-3 rounded-xl glass-control px-3 py-2.5">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-semibold text-teal-800 dark:bg-teal-500/15 dark:text-teal-300" aria-hidden>
                 {initials(me.name)}
               </span>

@@ -50,3 +50,4 @@ A running log of work sessions on HCM Lite: what changed, why, and what was left
 | [18 Liquid Glass](2026-10-28-03-liquid-glass.md) | 2026-10-28 | Liquid Glass on nav and controls, card sheen, drifting orbs; contrast re-measured |
 | [19 Performance & responsive](2026-10-28-04-performance-responsive.md) | 2026-10-28 | Lag fixed (still orbs, blur only on bars), 100-screenshot responsive sweep, tile rows and calendar labels |
 | [20 Professional chat](2026-10-28-05-professional-chat.md) | 2026-10-28 | Calm header, expand panel, topic cards, document-style answers, timer + Stop |
+| [21 Premium glass](2026-10-29-01-premium-glass.md) | 2026-10-29 | Light-catching card rims, grain texture, grouped sidebar; glass best practices noted |

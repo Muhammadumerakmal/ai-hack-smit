@@ -23,6 +23,11 @@
   --field-3: rgb(56 189 248 / 0.38);
   --field-4: rgb(94 234 212 / 0.3);
   --glass-sheen: rgb(255 255 255 / 0.55);
+  /* Light-catching rim: brightest at the top-left edge, like real glass. */
+  --glass-rim-1: rgb(255 255 255 / 0.95);
+  --glass-rim-2: rgb(255 255 255 / 0.3);
+  --glass-rim-3: rgb(255 255 255 / 0.75);
+  --grain-opacity: 0.05;
   /* Liquid Glass (ui-ux-pro-max "liquid-glass"): navigation and controls only; content stays on calmer glass. */
   --control-bg: rgb(255 255 255 / 0.5);
   --control-sheen: rgb(255 255 255 / 0.75);
@@ -58,6 +63,10 @@
     --field-3: rgb(14 165 233 / 0.16);
     --field-4: rgb(20 184 166 / 0.12);
     --glass-sheen: rgb(255 255 255 / 0.045);
+    --glass-rim-1: rgb(255 255 255 / 0.16);
+    --glass-rim-2: rgb(255 255 255 / 0.04);
+    --glass-rim-3: rgb(255 255 255 / 0.1);
+    --grain-opacity: 0.07;
     --control-bg: rgb(39 39 42 / 0.5);
     --control-sheen: rgb(255 255 255 / 0.09);
     --control-rim: rgb(255 255 255 / 0.14);
@@ -105,9 +114,15 @@
    a GPU pass per card, so plain glass is translucent without backdrop-filter. glass-strong (overlays: menus,
    dialogs, the chat) and the sticky header/filter bar do blur, because content scrolls underneath them. */
 @utility glass {
-  background-color: var(--glass-bg);
-  background-image: linear-gradient(135deg, var(--glass-sheen) 0%, transparent 42%);
-  border: 1px solid var(--glass-border);
+  /* Layers, top to bottom: sheen, optional tint (--glass-tint), the panel fill, then the rim gradient that only
+     shows in the 1px transparent border. Coloured cards set --glass-tint instead of a bg-* class, which would
+     replace these layers. */
+  border: 1px solid transparent;
+  background:
+    linear-gradient(135deg, var(--glass-sheen) 0%, transparent 42%) padding-box,
+    var(--glass-tint, linear-gradient(transparent, transparent)) padding-box,
+    linear-gradient(var(--glass-bg), var(--glass-bg)) padding-box,
+    linear-gradient(135deg, var(--glass-rim-1), var(--glass-rim-2) 45%, var(--glass-rim-3)) border-box;
   box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge), var(--glass-shadow);
 }
 @utility glass-strong {
@@ -159,6 +174,7 @@ body::before {
   z-index: -2;
   pointer-events: none;
   background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
     radial-gradient(48rem 36rem at 4% -6%, var(--field-1), transparent 68%),
     radial-gradient(44rem 34rem at 100% 0%, var(--field-2), transparent 68%),
     radial-gradient(52rem 38rem at 60% 110%, var(--field-3), transparent 68%),
