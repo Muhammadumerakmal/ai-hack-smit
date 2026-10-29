@@ -28,7 +28,7 @@ npm run dev                     # http://localhost:3000
 
 **Upgrading an existing single-company database:** run the reviewed SQL in `prisma/manual-migrations/2026-10-27-multi-company/` (steps in its README). Existing data becomes company 1; nothing is deleted.
 
-**Tests:** `npm test` runs 271 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
+**Tests:** `npm test` runs 280 tests (unit + database + route-level RBAC). They need the docker Postgres and reseed it. `npm run dev:seed -- --yes` fills a **local** database with a demo company for manual testing; it refuses to run in production or against a non-local database.
 
 ## What is done
 
