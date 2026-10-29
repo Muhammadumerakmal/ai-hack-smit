@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { db } from "./db";
 import type { Session } from "./session";
+import { queuePush } from "@/server/services/push.service";
 import { currentCompanyId } from "./tenant";
 
 type Tx = Prisma.TransactionClient | PrismaClient;
@@ -50,5 +51,11 @@ export async function notify(
   tx: Tx = db,
 ) {
   const ids = [...new Set(userIds.filter((x): x is string => !!x))];
-  if (ids.length) await tx.notification.createMany({ data: ids.map((userId) => ({ companyId: currentCompanyId(), userId, ...n })) });
+  if (!ids.length) return;
+  const rows = await tx.notification.createManyAndReturn({
+    data: ids.map((userId) => ({ companyId: currentCompanyId(), userId, ...n })),
+    select: { id: true },
+  });
+  // Also alert the recipients' phones/computers, after the response, and only if these rows were committed.
+  queuePush(rows.map((r) => r.id));
 }

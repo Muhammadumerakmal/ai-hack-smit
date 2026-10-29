@@ -24,7 +24,7 @@ npx vitest run tests/unit.test.ts -t "working days"   # one test by name
 TEST_DATABASE_URL=postgresql://hcm:hcm@localhost:5432/hcm_test npx vitest run   # run against a separate DB
 ```
 
-Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgres and `.env` holds the hosted Neon URL. Required: `DATABASE_URL`, `JWT_SECRET`, `AI_API_KEY`. Optional: `AI_MODEL` (default `gpt-4.1-mini`; the project runs `gemini-3.5-flash-lite`), `AI_BASE_URL` (any OpenAI-compatible provider; Gemini is `https://generativelanguage.googleapis.com/v1beta/openai/`), `AI_TIMEOUT_MS`, `AI_RATE_LIMIT_PER_HOUR`, `APP_TZ` (default `Asia/Karachi`), `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
+Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgres and `.env` holds the hosted Neon URL. Required: `DATABASE_URL`, `JWT_SECRET`, `AI_API_KEY`. Optional: `AI_MODEL` (default `gpt-4.1-mini`; the project runs `gemini-3.5-flash-lite`), `AI_BASE_URL` (any OpenAI-compatible provider; Gemini is `https://generativelanguage.googleapis.com/v1beta/openai/`), `AI_TIMEOUT_MS`, `AI_RATE_LIMIT_PER_HOUR`, `APP_TZ` (default `Asia/Karachi`), `ADMIN_EMAIL`/`ADMIN_PASSWORD`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (Web Push; empty = push off).
 
 ### Test caveats
 - **DB tests TRUNCATE every table and reseed** (`tests/helpers.ts → seed()`). By default they use the `DATABASE_URL` from `.env`/`.env.local`, which is your dev database. Pass `TEST_DATABASE_URL` if you want to keep dev data.
@@ -35,7 +35,7 @@ Env: `.env.local` overrides `.env`. Locally `.env.local` points at docker Postgr
 - `tests/security-integrity.test.ts.wip` is parked work and does not run.
 - `tests/setup.ts` runs every test inside company 1 (all fixtures build company 1). Raw `new PrismaClient()` fixture writes must set `companyId: 1`, and fixtures that insert `id: 1` into `settings` must `setval` its sequence. `tests/tenancy.db.test.ts` is the cross-company isolation suite.
 - Prisma refuses `db push --force-reset` from an AI agent without the user's consent. For a fresh local test DB, create a new database (`CREATE DATABASE …`) and `db push` to it.
-- Last full run: 272 passing (`history/` records each session's count).
+- Last full run: 280 passing (`history/` records each session's count).
 
 ## Architecture
 
@@ -49,6 +49,7 @@ Request flow: `page.tsx` (client) → `src/lib/client.ts` `api()` / `useApi()` �
 - **Writes and audit:** mutations run in `db.$transaction` and call `audit(actor, action, entity, id, {before, after}, tx)` and `notify(userIds, {...}, tx)` from `src/lib/audit.ts` with the same `tx`, so the log entry commits atomically with the change. `audit_logs` is append-only and password hashes are stripped. Leave apply/approve takes a `SELECT … FOR UPDATE` row lock on the employee so concurrent requests can't both pass the balance checks. Decisions only apply to still-PENDING rows.
 - **Dates:** calendar dates are ISO strings (`"2026-10-24"`) stored in Postgres `DATE` columns as UTC midnight (`toDate`/`toIso`). "Today", late time and clock times always come from `APP_TZ` (`todayIso`, `localClock`, `zonedDateTime` in `src/lib/dates.ts`). Don't use `new Date()` arithmetic for calendar days. Working days come from `CompanySettings.weekendDays` and the holidays table.
 - **Payroll rules** (`payroll.service.ts`): gross = 1.5 × basic, per-day deductions, proration, monthly tax from the annual slab, plus the optional late penalty (`latePenaltyDays`, on only when `CompanySettings.latePenaltyEnabled`). HR creates a draft run per month and Admin finalizes it, which locks it. Payslip PDFs are produced by `src/server/pdf.ts`.
+- **Push alerts:** `notify()` (`src/lib/audit.ts`) creates the rows with `createManyAndReturn` and calls `queuePush(ids)` (`server/services/push.service.ts`). That schedules `deliverPush` with Next's `after()`, which re-reads the rows (so a rolled-back notification is never pushed), sends with `web-push` to the recipient's `PushSubscription` rows and deletes devices that answer 404/410. Outside a request (tests, scripts) nothing is queued; tests call `deliverPush` with `setPushSender(fake)`. Without VAPID keys the push table is never touched. `public/sw.js` shows the alert and opens its link; the switch is `components/shell/PushToggle.tsx` in the bell menu.
 - **Bonus features:** camera check-in rules are the pure `evaluateCameraCheckIn` in `attendance.service.ts` (Haversine in `src/lib/geo.ts`; the browser side is `components/attendance/CameraCheckIn.tsx`, MediaPipe from CDN). Face matching: `FaceProfile` table (never include it in employee responses or audit JSON), `src/lib/face.ts` (distance + 0.55 threshold), `verifyFace` / `enrollFace` / `resetFace` in `attendance.service.ts`, browser descriptors in `components/attendance/faceRecognition.ts` (face-api.js, models from CDN). Attrition risk and anomaly flags are the pure `scoreAttritionRisk` / `detectAnomalies` in `insights.service.ts` over `getDayRows` output. PWA: `app/manifest.ts`, `public/sw.js` (never caches `/api`), registered by `components/shell/PwaRegister.tsx` in production only.
 
 ### AI assistant (`src/server/ai/`)

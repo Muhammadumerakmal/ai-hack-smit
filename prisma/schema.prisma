@@ -81,6 +81,7 @@ model CompanySettings {
   chatConversations     ChatConversation[]
   chatMessages          ChatMessage[]
   faceProfiles          FaceProfile[]
+  pushSubscriptions     PushSubscription[]
 
   @@map("settings")
 }
@@ -96,10 +97,11 @@ model User {
   mustChangePassword Boolean  @default(false)
   createdAt          DateTime @default(now())
 
-  employee      Employee?
-  aiLogs        AiLog[]
-  notifications Notification[]
-  conversations ChatConversation[]
+  employee          Employee?
+  aiLogs            AiLog[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  conversations     ChatConversation[]
 
   company CompanySettings @relation(fields: [companyId], references: [id])
 
@@ -456,4 +458,24 @@ model FaceProfile {
 
   @@index([companyId])
   @@map("face_profiles")
+}
+
+/// A browser/phone that asked for push alerts (Web Push). One row per device endpoint; the keys encrypt each
+/// message for that device only. Removed when the user turns alerts off or the push service says it expired.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  companyId Int
+  userId    String
+  /// push service URL for this device (unique: re-subscribing the same device updates the row)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  company CompanySettings @relation(fields: [companyId], references: [id])
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@map("push_subscriptions")
 }

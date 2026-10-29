@@ -8,6 +8,7 @@ import { Loading } from "@/components/ui";
 import { api, fmtDateTime, useApi } from "@/lib/client";
 import { Icon } from "./icons";
 import { LogoMark } from "./Logo";
+import { PushToggle } from "./PushToggle";
 
 export type Role = "ADMIN" | "HR" | "EMPLOYEE";
 export interface Me {
@@ -298,6 +299,7 @@ function NotificationBell() {
               );
             })}
           </ul>
+          <PushToggle />
         </div>
       )}
     </div>

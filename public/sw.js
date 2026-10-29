@@ -46,3 +46,35 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// Push alerts (Web Push): the server sends { title, body, url, tag }; show it like an app notification.
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "HCM Lite", {
+      body: data.body || "",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      tag: data.tag, // the same notification never shows twice
+      data: { url: data.url || "/dashboard" },
+    }),
+  );
+});
+
+// Tapping an alert opens the related page, reusing an open HCM Lite tab when there is one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/dashboard", self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((tabs) => {
+      const tab = tabs.find((t) => t.url.startsWith(self.location.origin));
+      if (tab) return tab.navigate(url).then((t) => (t || tab).focus());
+      return self.clients.openWindow(url);
+    }),
+  );
+});

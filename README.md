@@ -22,6 +22,8 @@ npm run dev                     # http://localhost:3000
 
 **AI key:** the assistant runs on **Gemini** (`gemini-3.5-flash-lite`) through Google's OpenAI-compatible endpoint, driven by the OpenAI Agents SDK. Set `AI_API_KEY` (a Gemini key from Google AI Studio), `AI_MODEL="gemini-3.5-flash-lite"` and `AI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"` in `.env`, or in the host's environment settings. Only the server reads them. Any other OpenAI-compatible provider works the same way; with no `AI_BASE_URL` it calls OpenAI (`AI_MODEL` defaults to `gpt-4.1-mini`).
 
+**Push alerts (phones and computers):** every in-app notification (leave decisions, payslips, announcements, corrections) is also sent as a Web Push alert to the devices where the person turned on **Alerts on this device** (in the notification bell). Generate keys once with `npx web-push generate-vapid-keys`, then set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` (your site URL). Without them push stays off. On iPhone, alerts need the app added to the Home Screen first (iOS 16.4+).
+
 **Hosting (Vercel + Neon):** set `DATABASE_URL` (Neon pooled URL, add `&connect_timeout=30`), `JWT_SECRET`, `AI_API_KEY`, `APP_TZ=Asia/Karachi`. The build runs `prisma generate`. Create the tables once with `npx prisma db push` against the Neon **direct** URL (without `-pooler`). Run it again after pulling schema changes (the bonus features added columns).
 
 **Upgrading an existing single-company database:** run the reviewed SQL in `prisma/manual-migrations/2026-10-27-multi-company/` (steps in its README). Existing data becomes company 1; nothing is deleted.
